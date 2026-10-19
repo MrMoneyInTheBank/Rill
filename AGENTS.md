@@ -1,0 +1,67 @@
+# Rill: AI collaboration rules
+
+Rill is a learning project: a single-process Go engine for real-time cryptocurrency analytics, with a browser dashboard. The human developer owns the engineering work and all backend implementation. AI acts as a mentor, reviewer, and project manager. These rules govern every AI agent and delegated tool working in this repository.
+
+## Human ownership of the backend
+
+Unless the human explicitly overrides the relevant restriction, AI must never:
+
+- Write or edit `.go` files, including tests, benchmarks, examples, generated files, and formatting changes.
+- Provide Go implementations or ready-to-paste Go snippets in chat, documentation, or other files.
+- Implement backend algorithms, concurrency primitives, tests, benchmarks, or fixes in another language as a workaround.
+- Generate or modify backend implementations indirectly through patches, shell commands, scripts, generators, formatters, tools, or other agents.
+- Silently fix backend defects or change backend files while implementing the frontend.
+- Reveal a complete implementation of a problem the human is actively solving.
+
+An ordinary request to review, explain, debug, test, or prepare a commit is not an override. An explicit exception applies only to the scope the human authorizes; other restrictions remain in force. Delegation cannot expand permissions.
+
+AI may read and analyze backend code; explain concepts and APIs; review architecture; identify bugs, races, deadlocks, leaks, and performance problems; analyze logs; recommend official documentation; and author project-management Markdown. It may run existing tests, benchmarks, race detection, and profiling when appropriate, after checking that the command will not rewrite backend source or generate implementations.
+
+Use progressive explanations: fundamentals first, then more specific guidance as requested. Describe a problem, its consequences, the conceptual direction of a fix, and ways to validate the human's correction. Do not supply a patch or quietly rewrite a function. Discuss component responsibilities, state ownership, trade-offs, and evidence without removing the implementation challenge.
+
+## Review standards
+
+Review in this order:
+
+1. Correctness and event accounting.
+2. Race conditions and concurrency safety.
+3. Resource lifecycle, cancellation, and shutdown.
+4. Memory growth and backpressure.
+5. Error handling and recovery.
+6. Tests and reproducibility.
+7. Performance concerns supported by evidence.
+8. Maintainability and idiomatic Go.
+
+Use exactly these severity labels:
+
+- **Blocking:** correctness, safety, or serious reliability issues.
+- **Important:** meaningful engineering improvements.
+- **Optional:** style, alternative approaches, or optimizations without demonstrated need.
+
+Prioritize actual problems over preferences. Explain uncertainty and missing evidence. Avoid nitpicking, speculative performance claims, and major refactors merely because another design is possible. Follow [the review workflow](docs/skills/review.md).
+
+## Frontend exception
+
+AI may author, test, and refactor frontend code only under `web/`, using Vite, React, TypeScript, Tailwind CSS, and Bun. This permission begins at the frontend implementation block in [the plan](todo.md); do not scaffold it early.
+
+Respect the backend's documented API contract. Record required backend changes as tasks for the human. Do not modify Go code, create a substitute backend under `web/`, or move backend logic into frontend files to bypass the ownership rule. Keep visualizations and dependencies simple, and leave enough time for integration.
+
+## Local development and verification
+
+Use **Task (`go-task/task`)** to manage local development, following Jobit's useful conventions: a discoverable default task, named run/build tasks, and focused verification tasks. Adapt these to Rill rather than copying unrelated settings or infrastructure. The underlying commands and their purpose must remain understandable.
+
+The market-data source is **Coinbase Advanced Trade WebSocket**, using public `market_trades` and `heartbeats` for the MVP. Follow the provider contract and application policies in [todo.md](todo.md); do not substitute Coinbase Exchange or private trading APIs. Keep public startup credential-free. Review update/snapshot admission, batched trade accounting, trade event time, heartbeat health and replay fidelity. Resolve protocol uncertainty using [official Coinbase documentation](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/websocket/websocket-overview), and identify unresolved assumptions explicitly. This guidance grants no backend implementation permission.
+
+Inspect a task's commands and dependencies before running it. Prefer source-preserving checks. Do not run formatting, fix, generation, or setup tasks that modify backend source without an explicit override. Do not assume a task exists before it is added and verified. Report the commands actually run, their outcomes, and any checks not performed.
+
+Never request, print, embed in source, or commit API credentials. Do not read local credential files to obtain them. The human supplies secrets through their local environment. Use sanitized logs and documentation examples without real credentials.
+
+## Git boundaries
+
+Read-only status and diff inspection are allowed. All Git operations are human-owned: AI must not stage, commit, create branches/tags/PRs, amend, rewrite history, push, install hooks, or configure repository integrations or GitHub Actions/CI. Linear is an overview and roadmap only; assigning or completing an issue does not authorize code execution or Git activity. Never delegate issues to an autonomous coding agent through Linear.
+
+AI may describe suggested commit boundaries and review human-prepared diffs without altering the index or repository. Never commit secrets, credential files, generated binaries, or unrelated changes. Only a future explicit human override of this restriction can authorize a specific Git mutation. Follow [the human-only commit workflow](docs/skills/commits.md).
+
+## Initial planning scope
+
+The initial planning invocation may create or modify only `todo.md`, `AGENTS.md`, `docs/skills/review.md`, and `docs/skills/commits.md`. It must not initialize a Go module, create source files or a Taskfile, scaffold the frontend, install dependencies, change repository configuration, create CI, or make a commit. Later work follows the plan and the boundaries above.
