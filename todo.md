@@ -2,15 +2,15 @@
 
 **Objective:** Build and explain a single-process Go engine that ingests live crypto trades, computes correct bounded-memory analytics, replays recorded inputs deterministically, and exposes measured behavior through a small dashboard. All Go implementation, tests, and benchmarks belong to the human developer; Codex mentors and reviews, and implements only the frontend under `web/` in Block 12. See [AGENTS.md](AGENTS.md).
 
-**Deadline:** Friday, **October 23, 2026 at 11:59 PM**, Asia/Kolkata (IST). Roadmap preparation is October 19; the 16 development blocks run October 20–23.
+**Core checkpoint:** Friday, **October 23, 2026 at 11:59 PM IST**. **Optional final deadline:** Sunday, **October 25, 2026 at 11:59 PM IST**, only if core acceptance work needs more time. Roadmap preparation is October 19; core blocks run October 20–23.
 
 **Roadmap-only automation:** Linear tracks scope, ownership, sizes and deadlines. All Git operations are human-only. No agent staging, commits, branches, tags, pushes, pull requests, hooks, repository integration, or GitHub Actions/CI setup is authorized. Linear completion must never trigger code execution or repository changes.
 
-**Budget:** Exactly **16 sequential blocks × 2 hours = 32 focused hours**, including reading, design, implementation, testing, debugging, AI interaction, frontend integration, and documentation. The overview uses four relative workdays, four blocks each; breaks are additional calendar time. This is a demanding eight focused hours per day, not a promise that every unfamiliar concept will fit. Preserve any completed blocks and account for migration work within remaining blocks; changing providers does not automatically reset the budget. Stop at each timebox and use the fallback policy below.
+**Budget:** **16 core sequential blocks × 2 hours = 32 focused hours**, plus up to **6 optional contingency blocks × 2 hours = 12 hours** on October 24–25 (44 hours maximum), including reading, design, implementation, testing, debugging, AI interaction, frontend integration, and documentation. The overview uses four relative workdays, four blocks each; breaks are additional calendar time. This is a demanding eight focused hours per day, not a promise that every unfamiliar concept will fit. Preserve any completed blocks and account for migration work within remaining blocks; changing providers does not automatically reset the budget. Stop at each timebox and use the fallback policy below.
 
 ## MVP acceptance criteria
 
-- Live Coinbase Advanced Trade BTC-USD ingestion: public subscription, heartbeat health, validated trade updates, cancellation, and basic reconnect with visible possible data gaps.
+- Live Coinbase Exchange BTC-USD match ingestion: public subscription, heartbeat health, validated trade updates, cancellation, and basic reconnect with visible possible data gaps.
 - Immutable finalized 10-second windows: trade count, volume, VWAP; explicit event-time lateness policy and `late_events_dropped`.
 - Incremental 60-second rolling VWAP and trades/second, evaluated at one-second event-time boundaries, with visible warm-up and staleness.
 - Independent BTC-USD and ETH-USD analytics; bounded state and explicit event accounting throughout.
@@ -42,33 +42,47 @@ Every row is one two-hour block. The detailed blocks below are the work queue; a
 | 15 | Day 4 | Profiling and reliability | CPU/heap analysis and bounded-memory soak |
 | 16 | Day 4 | Final fixes, docs, acceptance | Honest v0.1.0 handoff |
 
-Blocks 9 and 13 reserve four full hours for verification/debugging. Block 16 reserves another hour for fixes; each implementation block also includes checks. Optional work cannot consume these reserves.
+Blocks 9 and 13 reserve four full hours for verification/debugging. Block 16 reserves another hour for fixes; each implementation block also includes checks. Up to six additional two-hour contingency blocks may be used on October 24–25 only for unfinished MVP gates; do not reset completed work. Optional work cannot consume these reserves.
 
 **Stretch goals, after every MVP gate passes:** order book reconstruction; Docker; cloud deployment; additional analytics such as volume imbalance; SOL-USD; arbitrary-instant rolling queries; continuous recording; measured optimizations. None is needed to complete this plan. GitHub Actions/CI is excluded from this roadmap; any future Git work belongs to the human.
 
 ## Working assumptions and architecture reference
 
-### Coinbase Advanced Trade facts checked October 19, 2026
+### Coinbase Exchange WebSocket — protocol facts and learning questions (October 19, 2026)
 
-- Use the public spot endpoint `wss://advanced-trade-ws.coinbase.com`, with `market_trades` and `heartbeats`. These channels need no JWT. Start without an account, API key, or signing code; verify actual local access in Block 1. Keep this protocol distinct from Coinbase Exchange, private user data, and Global Derivatives. [Endpoints](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/websocket/websocket-endpoints)
-- Send a subscription within five seconds of connecting, with a separate request for each channel. Product identifiers use hyphens: `BTC-USD`, then `ETH-USD`. Use the documented subscription payload and inspect responses/errors rather than waiting for an authentication handshake. [WebSocket overview](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/websocket/websocket-overview)
-- Trade updates collect activity over 250 ms and may contain multiple trades. Treat this as upstream batching when interpreting latency and load. [Market trades](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/websocket/market-trades)
-- Heartbeats arrive approximately each second and need no product list. Most inactive channels otherwise close after 60–90 seconds. Keep a separate connection-health signal even when a product has no new trades. [Heartbeats](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/websocket/heartbeats), [idle subscriptions](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/websocket/websocket-endpoints)
-- Messages contain `channel`, server-send `timestamp`, `sequence_num` and an `events` array. Trade events have `type` (`snapshot`/`update`) and `trades`. Each trade has string `trade_id`, `product_id`, `price`, `size`, `side` and RFC 3339 `time`. Use trade `time` for analytics; `side` describes the **maker**, not the aggressor. [Official AsyncAPI schema](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/advanced-trade-asyncapi.json)
-- Authentication is optional for this MVP. If later chosen for operational reasons, use CDP WebSocket JWT guidance; token lifetime is two minutes and each outgoing authenticated message needs a fresh JWT. Do not add private-key handling to the initial work. [Authentication](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/websocket/websocket-authentication)
+**Read official Exchange documentation, not Advanced Trade docs:** [Overview](https://docs.cdp.coinbase.com/exchange/websocket-feed/overview), [Channels](https://docs.cdp.coinbase.com/exchange/websocket-feed/channels), [Best practices](https://docs.cdp.coinbase.com/exchange/websocket-feed/best-practices), [Errors](https://docs.cdp.coinbase.com/exchange/websocket-feed/errors), [Rate limits](https://docs.cdp.coinbase.com/exchange/websocket-feed/rate-limits). Validate live examples in Block 1 rather than trusting illustrative payloads.
 
-**Documentation uncertainties:** The overview describes per-product sequence numbers, while the AsyncAPI schema describes per-connection sequences. Retain the values and verify behavior across both channels and multiple products before asserting gap counts. Do not derive dropped-trade totals or reject trades from sequence values alone. The official [rate-limit page](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/websocket/websocket-rate-limits) did not expose usable numeric limits in this review; numeric connection/control-message quotas remain unverified. Block 1 should recheck the page. Use one connection and sparse control messages with backoff, and do not assume another Coinbase API's quotas apply.
+- Public endpoint: `wss://ws-feed.exchange.coinbase.com`. Public market data needs no account/JWT. Subscribe to **`matches`** and **`heartbeat`** (singular) for `BTC-USD`, then `ETH-USD`. Exchange messages use a top-level `type`, not Exchange's `channel/events/trades` message. Acknowledge `subscriptions` and inspect errors.
+- Exchange `matches` sends **one match per message**. The first trade-like message after subscribing is `last_match`, the last known execution: treat it as initial context, **not a newly observed live trade**, unless you deliberately justify a different policy. Do not refer to Exchange's snapshot/update batches.
+- `match` includes `trade_id` (JSON integer), `sequence`, `product_id`, `price` and `size` (decimal strings), `time`, `side`, `maker_order_id` and `taker_order_id`. `side` is the **maker** side: a maker sell means aggressive buy. Decide a safe representation for IDs and for frontend JSON precision.
+- Exchange `heartbeat` is **per product**, approximately every second, with `sequence`, `last_trade_id`, `product_id` and `time`. It provides a liveness/data-quality signal, not proof that all matches arrived. Compare WebSocket Ping/Pong, application heartbeat, and per-product market inactivity.
+- `sequence` is per product and applies to feed messages, not just trades. Sequence gaps do **not** equal missing-trade counts. The `matches` channel can drop messages; use `last_trade_id` and sequence observations as **continuity diagnostics**, not automatic backfill or exactly-once guarantees. Read the docs on message loss, out-of-order and duplicate sequences; verify in your own capture.
+- `ticker` is not the same as `matches`; `full` adds order lifecycle complexity and is a stretch goal. Do not assume the two Coinbase APIs share limits, error formats, heartbeat semantics or delivery guarantees.
 
-Recommended client: [coder/websocket](https://github.com/coder/websocket), a general-purpose library with context support. Pin a stable compatible release when implementing. Use standard-library JSON, HTTP, time, testing, and profiling facilities where suitable; implement the Coinbase application protocol yourself instead of using a provider SDK. Learn application integration, not RFC-level frame encoding. Direction-based analytics remain deferred; retaining `maker_side` must not silently create an aggressor-side metric.
+**Investigate:** What does a WebSocket subscription acknowledgment mean? How can an idle product coexist with a healthy connection? Can a REST trade-history query help investigate gaps, and what completeness guarantees would still be missing? What are the real rate/connection limits? How do malformed, unexpected, oversized, and unsupported messages differ? What can and cannot be inferred from a skipped sequence number?
 
-### Rill's Coinbase admission and health policies
+Recommended general-purpose WebSocket client to evaluate: [coder/websocket](https://github.com/coder/websocket). Learn the Exchange application protocol yourself, not raw WebSocket framing.
 
-These are application choices for the learning MVP, not provider guarantees.
+### Source adapter, fault tolerance and recovery: design questions
 
-- Admit only `market_trades` **update** trades. Count snapshot trades as `snapshot_trades_ignored` before acceptance, including reconnect snapshots. They neither seed deduplication nor advance watermarks. This avoids treating an unspecified history snapshot as new activity; the trade-off is intentionally omitting startup history. No snapshot is assumed to repair a disconnect gap.
-- Process every update trade in received envelope/event/trade-array order. One envelope is not one trade, and members need not be sorted by event time. Check numeric strings explicitly and keep `trade_id` as a string. Use canonical product keys matching Coinbase for now; the model still has no dependency on Coinbase wire types.
-- Heartbeats, subscription responses and unknown channels/event types are non-trade inputs. Classify/count them separately; unknown inputs cannot advance analytics. A local heartbeat watchdog (initially five seconds without a heartbeat after subscription) marks transport unhealthy and triggers the reconnect path. This timeout is a tunable local choice. Market staleness is tracked separately per product, so a healthy socket with quiet trading is represented honestly.
-- Keep bounded sequence/heartbeat diagnostics, associated with the connection session and channel, without assuming that storage keys prove the sequence's scope. Reset diagnostic baselines on reconnect; retain analytic state and the dedupe cache. An anomaly marks uncertain continuity and prompts investigation, never automatic window correction or a claim about the number of missed trades. No market-trade delivery or exactly-once guarantee is assumed.
+A **source adapter** translates provider-specific wire messages into a provider-independent trade model plus separate health/control/diagnostic signals. It is a semantic boundary, not permission to build a generic plugin framework. Learn when an interface helps, and when a concrete adapter is simpler. Replay should exercise the **same decoder and normalizer**. Exchange-specific `sequence`, heartbeat `last_trade_id`, connection session and wire errors belong in diagnostics, not in every analytics formula.
+
+Create a **failure matrix** for dial/DNS/TLS errors, subscribe timeout/rejection, unknown message types, malformed JSON, oversized frames, silent connection, stale per-product heartbeat, WebSocket close/read failure, sequence anomalies, local queue saturation, replay corruption, shutdown during retry and stalled SSE clients. For each, decide: detect, classify, record, retry or stop, expose health, and test. Distinguish transient transport failures, fatal configuration errors, and uncertain market-data continuity.
+
+**Learn/look up:** exponential backoff, jitter, retry caps, reset-after-stable-connection, context-aware cancellation, reconnection/resubscription, goroutine ownership, read deadlines, Ping/Pong, and error wrapping/classification. An initial experiment might use a one-second retry base and a roughly 30-second cap, but these are tunable choices, not Coinbase requirements. A retry must not spawn overlapping readers; reconnect does not recover lost history automatically. Preserve analytic state when appropriate and reset session diagnostics.
+
+### Buffers, backpressure and loss policy
+
+Distinguish OS/socket receive buffers, WebSocket frame/message limits, decoded **trade** queue, bounded per-symbol analytics, and browser/SSE mailboxes. Coinbase's [best practices](https://docs.cdp.coinbase.com/exchange/websocket-feed/best-practices) discuss socket receive buffering and slow consumers; that does **not** imply an unbounded Go channel.
+
+**Learn/look up:** arrival/service rates, burstiness, queue occupancy, Little's law, blocking sends, drop-newest/drop-oldest, nonblocking admission, reader starvation, slow-consumer disconnects and tail latency. **1,024 normalized trades** is a starting hypothesis, not a magic capacity. Compare alternatives with synthetic bursts; pick one with explicit local-loss accounting, bounded memory and heartbeat responsiveness. Distinguish locally dropped trades from an **unknown** number of upstream missing trades. Measure high-water marks, queue wait, drops and recovery.
+
+### Rill's Exchange admission and health policies
+
+- Classify `subscriptions`, `heartbeat`, `last_match`, `match`, errors and unknown types separately. Admit validated **`match`** only. Count initial `last_match` as ignored context; it must not seed live analytics or dedup unless justified and tested.
+- Process individual matches in received order. Keep the trade's exchange event time distinct from local receive time; no Advanced Trade message exchange event timestamp exists here. Preserve wire-level sequence and trade-ID diagnostics separately.
+- A heartbeat watchdog (candidate five seconds per subscribed product) is a **local heuristic**; distinguish connection health, per-product heartbeat age and last-trade staleness. A healthy socket does not prove market-data completeness.
+- Track bounded per-product sequence and heartbeat-last-trade diagnostics. On reconnect reset session baselines, retain analytic state and bounded dedup cache. An anomaly is a warning to investigate, not an exact lost-trade count or an automatic claim of backfill.
 
 ### Responsibilities and state ownership
 
@@ -78,16 +92,16 @@ Start with the following responsibilities; create each package only when its fir
 | --- | --- |
 | `cmd/rill` | Configuration, live/replay selection, wiring, cancellation and shutdown |
 | `internal/model` | Provider-independent trade and result meaning; no networking dependencies |
-| `internal/ingest` | Coinbase subscriptions, heartbeat/session health, envelope decoding and update-trade normalization |
+| `internal/ingest` | Coinbase subscriptions, heartbeat/session health, message decoding and match-trade normalization |
 | `internal/analytics` | Fixed/rolling computations and event-time policy; no sockets or wall-clock reads |
-| `internal/replay` | Stream recorded envelopes into the existing decoder, normalizer and processor; no second analytics implementation |
+| `internal/replay` | Stream recorded messages into the existing decoder, normalizer and processor; no second analytics implementation |
 | `internal/stream` | Add only when coordinating admission, per-symbol state and snapshots warrants separation from `cmd/rill` |
 | `internal/api` | HTTP/SSE transport of immutable snapshots; cannot mutate analytics |
 | `web/` | Display the agreed contract; no replacement market-processing engine |
 
 One upstream reader feeds one bounded channel. One processor owns the map of all symbol state. HTTP handlers consume immutable, size-bounded copies. This avoids locks around every window update and makes processing order inspectable. A synchronous pipeline is simpler but couples reads to computation; sharded processors may help measured CPU contention later. A goroutine per symbol adds ordering, lifecycle and snapshot complexity without current evidence of benefit.
 
-Start with an ingress capacity of 1,024 normalized trades, not envelopes. On full live ingress, reject the newest trade and count `ingress_queue_full`; do not spawn a goroutine or grow storage to make room. Continue classifying the bounded message so every extracted update has an outcome and heartbeats remain readable. This sacrifices known local events to maintain a bounded reader path. Blocking instead can transfer pressure upstream and end the connection. Measure queue occupancy, drops and latency before changing this choice. Replay correctness mode calls the same processor synchronously, so execution speed cannot cause nondeterministic queue drops; a separate load exercise can test the live queue.
+Start with an ingress capacity of 1,024 normalized trades, not messages. On full live ingress, reject the newest trade and count `ingress_queue_full`; do not spawn a goroutine or grow storage to make room. Continue classifying the bounded message so every extracted update has an outcome and heartbeat remain readable. This sacrifices known local events to maintain a bounded reader path. Blocking instead can transfer pressure upstream and end the connection. Measure queue occupancy, drops and latency before changing this choice. Replay correctness mode calls the same processor synchronously, so execution speed cannot cause nondeterministic queue drops; a separate load exercise can test the live queue.
 
 On shutdown, stop admissions, stop/close the source, then drain admitted events before stopping the processor. Give shutdown a bounded grace period (initially five seconds); abandoned admissions get `shutdown_dropped`. The source owns channel closure. Cancellation must unblock reads, sends, retry waits and HTTP handlers. Do not mark open windows final merely because the process exits.
 
@@ -95,28 +109,28 @@ On shutdown, stop admissions, stop/close the source, then drain admitted events 
 
 These are recommended v0.1 defaults to decide and test in Blocks 2, 5 and 6, not implementation instructions.
 
-- Keep **trade event time**, **envelope server-send time**, **local receive UTC**, and **local monotonic durations** distinct. A batch shares its receive timestamp; individual trades retain their own event times. Reject missing/invalid trade times and malformed/non-positive/non-finite numeric strings. Preserve IDs as strings. `float64` prices/volumes are acceptable for this analytics exercise with documented tolerances, finite aggregate checks, and no financial-ledger precision claim. Choose decimal/fixed-point arithmetic later if evidence requires it.
+- Keep **trade event time**, **message server-send time**, **local receive UTC**, and **local monotonic durations** distinct. A each match has its own event time and captured receive timestamp. Reject missing/invalid trade times and malformed/non-positive/non-finite numeric strings. Preserve IDs as strings. `float64` prices/volumes are acceptable for this analytics exercise with documented tolerances, finite aggregate checks, and no financial-ledger precision claim. Choose decimal/fixed-point arithmetic later if evidence requires it.
 - Per symbol, let `M` be the greatest timestamp of an incorporated trade and `W = M − 2 seconds`. Before the first such trade there is no watermark. Reject an arriving trade with `t < previous W`, incrementing `late_events_dropped`; equality is admissible. Validate, deduplicate and check numeric admissibility before advancing `M`. This deliberately stricter rule can reject a trade whose 10-second window is still open, so both analytics share one clear lateness boundary.
 - Fixed intervals are UTC epoch-aligned, half-open `[start, start + 10 seconds)`. Incorporate eligible data before advancing finalization; an interval becomes final when its end is at or before `W`. Final results never change. VWAP is total price-times-size divided by total size; zero volume means unavailable, never zero price. Emit nonempty fixed windows; gaps are visible as missing intervals, not fabricated evidence of no trading.
 - Rolling results cover exactly `[E − 60 seconds, E)`, with `E` equal to `W` rounded down to a whole second. Maintain one-second aggregate buckets and incremental totals; a fixed ring of 64 buckets per symbol suffices for this default horizon/lateness. Revalidate capacity if either parameter changes. Buckets at or after `E` are pending. Trade intensity is the interval count divided by 60; label warm-up until the horizon has advanced 60 seconds beyond the first incorporated event. Warm-up completion does not certify upstream completeness. This is an exact window at specified horizons; arbitrary-instant querying would require a different retention design. An event deque/reorder buffer is an alternative if that finer cadence becomes necessary.
-- Idle trades, disconnects and replay EOF **freeze logical time**. Heartbeats and server-send timestamps never advance watermarks. The browser may keep refreshing health, but event-as-of and analytics stay unchanged and visibly stale; rolling intensity does not decay according to wall time. Pending windows remain partial. Reconnection retains state and resumes event-time progress on eligible updates. Large jumps expire old state with bounded work and do not generate millions of empty intervals. A busy symbol never advances an idle symbol's watermark.
+- Idle trades, disconnects and replay EOF **freeze logical time**. Heartbeats and exchange event timestamps never advance watermarks. The browser may keep refreshing health, but event-as-of and analytics stay unchanged and visibly stale; rolling intensity does not decay according to wall time. Pending windows remain partial. Reconnection retains state and resumes event-time progress on eligible updates. Large jumps expire old state with bounded work and do not generate millions of empty intervals. A busy symbol never advances an idle symbol's watermark.
 - Two seconds is a tunable starting assumption, not a Coinbase ordering guarantee or a consequence of its batching cadence. Max-observed timestamps cannot prove that earlier events have all arrived, and a future outlier can prematurely close windows. Initially reject a trade more than five seconds ahead of its captured receive UTC timestamp, with `future_timestamp_rejected`. Replay uses the saved receive timestamp and the same threshold. This guard relies on a reasonably synchronized local clock; smaller erroneous jumps can still cause loss. Measure observed lateness before tuning.
 
 ### Accounting, limits and replay contract
 
-**Accepted** means a validated normalized update trade successfully admitted to the processor: queued in live mode or handed to the synchronous processor in replay. Acceptance is not a promise of analytics incorporation. Each admission gets one terminal outcome: incorporated, duplicate, late, numeric rejection, or shutdown drop. At a consistent checkpoint:
+**Accepted** means a validated normalized match trade successfully admitted to the processor: queued in live mode or handed to the synchronous processor in replay. Acceptance is not a promise of analytics incorporation. Each admission gets one terminal outcome: incorporated, duplicate, late, numeric rejection, or shutdown drop. At a consistent checkpoint:
 
 `accepted = incorporated + duplicate + late + numeric_rejected + shutdown_dropped + pending`
 
-`pending` includes queued/in-flight admissions; after a successful drain it is zero. The incorporated outcome updates both analytic states, including pending buckets, or neither on a rejection. A coalesced browser snapshot need not display every incorporated trade. Invalid records, unsupported products, future timestamps, ignored snapshot trades and queue-full events are accounted for before acceptance with separate counters. Heartbeats are not trade admissions. An undecodable message gets a message-error count; its unknown number of trades must not be invented. Keep upstream continuity warnings separate from counted local losses.
+`pending` includes queued/in-flight admissions; after a successful drain it is zero. The incorporated outcome updates both analytic states, including pending buckets, or neither on a rejection. A coalesced browser snapshot need not display every incorporated trade. Invalid records, unsupported products, future timestamps, ignored last_match messages and queue-full events are accounted for before acceptance with separate counters. Heartbeats are not trade admissions. An undecodable message gets a message-error count; its unknown number of trades must not be invented. Keep upstream continuity warnings separate from counted local losses.
 
 For duplicate IDs, start with an exact per-symbol cache of the most recent 10,000 incorporated IDs, deterministic oldest-inserted eviction, and `duplicates_dropped`. Keep it across reconnects, reset it on a new process/replay run. Detection is guaranteed only while an ID remains in the cache; an evicted or restarted ID can be counted again if it passes the time policy. ID uniqueness is an application assumption scoped to the chosen feed and symbol. Conflicting repeats warrant an integrity warning, not overwriting earlier analytics. This is bounded deduplication, not end-to-end exactly-once delivery. Reconnects neither recover missed upstream trades nor establish how many were missed.
 
 Other initial caps: three configured symbols, 1 MiB WebSocket message/2 MiB JSONL line, 100 tape entries, 120 price points and 60 finalized windows per symbol, bounded latency histogram, five SSE clients with one pending snapshot each. These are starting engineering limits to test, not provider specifications. Aggregate numeric overflow must reject without partial mutation. Any future recording mode must also have file size/duration limits. Time horizons alone do not bound arbitrary trade lists or ID caches.
 
-JSONL records contain a schema version, provider/feed identity, connection-session marker, local record order, captured receive UTC and one original inbound JSON envelope. Preserve event types, nested array order, trade strings and diagnostic metadata so live and replay share the same decoder and admission rules. The local record sequence is independent of Coinbase sequence values and trade IDs. Stream the file rather than loading it all. Include public trade/heartbeat envelopes and necessary control inputs; exclude outgoing authentication, headers, secrets or unrestricted session dumps. Small saved samples and human-authored synthetic fixtures are sufficient; an always-on recorder is outside the MVP. Existing trade-only fixtures, if any, need an explicit schema migration; do not silently reinterpret them.
+JSONL records contain a schema version, provider/feed identity, connection-session marker, local record order, captured receive UTC and one original inbound Exchange JSON message. Preserve event types, nested array order, trade strings and diagnostic metadata so live and replay share the same decoder and admission rules. The local record sequence is independent of Coinbase sequence values and trade IDs. Stream the file rather than loading it all. Include public trade/heartbeat messages and necessary control inputs; exclude outgoing authentication, headers, secrets or unrestricted session dumps. Small saved samples and human-authored synthetic fixtures are sufficient; an always-on recorder is outside the MVP. Existing trade-only fixtures, if any, need an explicit schema migration; do not silently reinterpret them.
 
-Given identical records, order, configuration and numeric rules, a fresh replay reproduces aggregate results, terminal counters, snapshot-exclusion counts and partial/final status. It need not reproduce browser refreshes, operational throughput, latency, reconnect timing, or losses that occurred before recording. Do not sort envelopes or their nested trades: arrival order is part of the experiment. EOF does not force finalization; fixtures contain explicit later update trades when testing completed windows, and those trades also contribute to their own intervals. Compare ordered semantic results with documented floating-point tolerances; exclude local timings and unordered serialization. Paced replay sleeps between records but never uses that sleeping to advance analytic time. Replay does not run live heartbeat timeouts or reconnect loops; recorded session boundaries reset diagnostic context only. Measure replay performance with fresh per-run monotonic markers, never historical receive UTC timestamps. Reproducing live overload exactly would additionally require recorded admission decisions; that is deferred.
+Given identical records, order, configuration and numeric rules, a fresh replay reproduces aggregate results, terminal counters, snapshot-exclusion counts and partial/final status. It need not reproduce browser refreshes, operational throughput, latency, reconnect timing, or losses that occurred before recording. Do not sort messages or their nested trades: arrival order is part of the experiment. EOF does not force finalization; fixtures contain explicit later match trades when testing completed windows, and those trades also contribute to their own intervals. Compare ordered semantic results with documented floating-point tolerances; exclude local timings and unordered serialization. Paced replay sleeps between records but never uses that sleeping to advance analytic time. Replay does not run live heartbeat timeouts or reconnect loops; recorded session boundaries reset diagnostic context only. Measure replay performance with fresh per-run monotonic markers, never historical receive UTC timestamps. Reproducing live overload exactly would additionally require recorded admission decisions; that is deferred.
 
 CLI-only replay may report its results and exit. Dashboard replay stops its source at EOF but keeps the HTTP service and final snapshot available until cancellation; otherwise a fast fixture could finish before the browser connects.
 
@@ -143,12 +157,12 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Concepts to learn:** Go modules, configuration boundaries, public feed subscriptions, reproducible local commands.
 
-**Architectural guidance:** Use the public Advanced Trade feed without credentials. Verify it with a trusted WebSocket client before building the Go lifecycle. Subscribe to the chosen trade product and heartbeats, and save bounded inbound examples; an unreachable endpoint should not consume the next three blocks.
+**Architectural guidance:** Use the public Advanced Trade feed without credentials. Verify it with a trusted WebSocket client before building the Go lifecycle. Subscribe to the chosen trade product and heartbeat, and save bounded inbound examples; an unreachable endpoint should not consume the next three blocks.
 
 **Tasks:**
 
 - [ ] 20 min: Read the provider notes, recheck official rate limits, and check Go/Task/library compatibility. Note Bun as a Block 12 prerequisite.
-- [ ] 40 min: Verify the subscription responses, BTC-USD update trades and heartbeat traffic; retain a few complete inbound envelopes with receive times and observed snapshot behavior. Close the probe afterward. Record access findings and unresolved quota details.
+- [ ] 40 min: Verify the subscription responses, BTC-USD match trades and heartbeat traffic; retain a few complete inbound messages with receive times and observed snapshot behavior. Close the probe afterward. Record access findings and unresolved quota details.
 - [ ] 40 min: Initialize the module, write the minimal entry point yourself, and add working Task list/build/run/check tasks. Avoid empty future packages.
 - [ ] 20 min: Run the skeleton and checks, confirm secret/binary ignore coverage, and record any access blocker with the next action.
 
@@ -164,16 +178,16 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Concepts to learn:** Typed JSON decoding, exact identifiers, time parsing, validation, table-driven testing.
 
-**Architectural guidance:** Keep provider fields at the boundary. Decode the envelope and then each nested event/trade, applying the update-only policy. Preserve event, server-send and receive timestamps with different meanings. Prefer explicit types over a generic event framework; control inputs and snapshots do not enter analytics.
+**Architectural guidance:** Keep provider fields at the boundary. Decode the message and then each nested event/trade, applying the update-only policy. Preserve event, server-send and receive timestamps with different meanings. Prefer explicit types over a generic event framework; control inputs and snapshots do not enter analytics.
 
 **Tasks:**
 
 - [ ] 20 min: Select domain fields, string-number parsing, rejection/exclusion reasons and timestamp meanings from the reference contract.
-- [ ] 60 min: Implement envelope decoding and update-trade normalization in received order; classify snapshots, heartbeats, subscription/errors and unknown inputs.
+- [ ] 60 min: Implement message decoding and match-trade normalization in received order; classify snapshots, heartbeat, subscription/errors and unknown inputs.
 - [ ] 30 min: Test malformed numeric strings, bad times, exact IDs, multiple events/trades, snapshot exclusion and heartbeat-only input.
 - [ ] 10 min: Run `task check` and annotate what was intentionally excluded.
 
-**Definition of done:** Every eligible trade in a saved batch normalizes correctly; invalid records have reasons; snapshots/heartbeats cannot create trades or advance time; IDs retain their identity.
+**Definition of done:** Every eligible trade in a saved batch normalizes correctly; invalid records have reasons; snapshots/heartbeat cannot create trades or advance time; IDs retain their identity.
 
 **Conceptual checkpoint:** Why is an exchange timestamp unsuitable for measuring in-process execution duration?
 
@@ -185,7 +199,7 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Concepts to learn:** Goroutines, channel ownership, contexts, blocking, backpressure, WebSocket message/control lifecycles.
 
-**Architectural guidance:** One reader and one processor are sufficient. Learn cancellation before adding more components. Implement both subscriptions and the heartbeat watchdog on one connection; until Block 8, a watchdog failure terminates/reports that connection. The library handles WebSocket control frames; Coinbase application heartbeats are a separate health signal.
+**Architectural guidance:** One reader and one processor are sufficient. Learn cancellation before adding more components. Implement both subscriptions and the heartbeat watchdog on one connection; until Block 8, a watchdog failure terminates/reports that connection. The library handles WebSocket control frames; Coinbase application heartbeat are a separate health signal.
 
 **Tasks:**
 
@@ -194,7 +208,7 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 - [ ] 30 min: Exercise cancellation, full queues, a missing heartbeat and shutdown draining; use a deliberately slow consumer to expose batch pressure.
 - [ ] 10 min: Check a short live run and run existing checks; leave retry work as a clearly identified Block 8 task.
 
-**Definition of done:** Updates reach the processor; batches cannot bypass queue limits; cancellation leaks no reader or blocked send. Missing heartbeats and quiet trading produce distinct health states.
+**Definition of done:** Updates reach the processor; batches cannot bypass queue limits; cancellation leaks no reader or blocked send. Missing heartbeat and quiet trading produce distinct health states.
 
 **Decision to make:** Can you explain what is lost when the queue is full, and what blocking would change?
 
@@ -206,16 +220,16 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Concepts to learn:** Streaming file I/O, fixture design, deterministic order, logical versus execution time.
 
-**Architectural guidance:** Replay complete recorded envelopes through the live decoder and admission policy. A synchronous driver isolates correctness from scheduler/queue effects and will call the same analytics entry point as live ingestion. Preserve nested order and session boundaries; do not build a generalized source framework or durable recording service.
+**Architectural guidance:** Replay complete recorded messages through the live decoder and admission policy. A synchronous driver isolates correctness from scheduler/queue effects and will call the same analytics entry point as live ingestion. Preserve nested order and session boundaries; do not build a generalized source framework or durable recording service.
 
 **Tasks:**
 
-- [ ] 20 min: Define the JSONL record wrapper and prepare saved-envelope fixtures plus labeled synthetic snapshot/update/heartbeat cases.
+- [ ] 20 min: Define the JSONL record wrapper and prepare saved-message fixtures plus labeled synthetic snapshot/update/heartbeat cases.
 - [ ] 60 min: Implement bounded line-by-line reading, the shared decoder/normalizer handoff and `task replay`; add pacing only after the core works.
 - [ ] 30 min: Replay twice; compare order, rejection and snapshot-exclusion counts. Test malformed/oversize records, session boundaries and explicit EOF behavior.
 - [ ] 10 min: Document fresh-state requirements, receive-time provenance and which operational values cannot be deterministic.
 
-**Definition of done:** Replay needs no credentials, preserves envelope/nested order and exact IDs, and reproduces classification/normalization outcomes. It is ready to feed the analytics added next.
+**Definition of done:** Replay needs no credentials, preserves message/nested order and exact IDs, and reproduces classification/normalization outcomes. It is ready to feed the analytics added next.
 
 **Conceptual checkpoint:** Faster replay may reproduce aggregates while failing to simulate a live connection's timing and pressure. Explain why.
 
@@ -269,7 +283,7 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Tasks:**
 
-- [ ] 15 min: Audit per-envelope versus per-trade counters, snapshot exclusions and accepted outcomes; list every growing collection.
+- [ ] 15 min: Audit per-message versus per-trade counters, last_match exclusions and accepted outcomes; list every growing collection.
 - [ ] 60 min: Implement bounded duplicate handling, missing caps and finite-aggregate checks; ensure rejected events cannot partially update windows or watermarks.
 - [ ] 35 min: Test duplicate repeats/eviction, equal IDs on distinct symbols where supported by the model, numeric rejection, queue overflow and shutdown accounting.
 - [ ] 10 min: Verify the accounting equation after a drain; record limits and deduplication guarantees.
@@ -284,16 +298,16 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Concepts to learn:** State partitioning, retry classification, backoff, reconnect gaps.
 
-**Architectural guidance:** Keep one symbol-state owner and one public connection. Reconnect serially with cancellable exponential backoff/jitter (start near one second, cap near 30 seconds). Re-establish both subscriptions promptly; no authentication step is needed. Retain analytics/dedupe, reset session diagnostics and ignore reconnect snapshots. Retry network/heartbeat failures; surface invalid products/subscriptions, and back off on throttling. Sequence anomalies flag uncertain continuity, not automatic reconnect storms or exact missing-trade counts.
+**Architectural guidance:** Keep one symbol-state owner and one public connection. Reconnect serially with cancellable exponential backoff/jitter (start near one second, cap near 30 seconds). Re-establish both subscriptions promptly; no authentication step is needed. Retain analytics/dedupe, reset session diagnostics and ignore reconnect last_match. Retry network/heartbeat failures; surface invalid products/subscriptions, and back off on throttling. Sequence anomalies flag uncertain continuity, not automatic reconnect storms or exact missing-trade counts.
 
 **Tasks:**
 
 - [ ] 30 min: Enable two products with independent analytic state; compare sequence behavior across products/channels without assuming its scope.
-- [ ] 50 min: Implement reconnect, session diagnostics and continuity indicators; reset backoff after a stable subscription with healthy heartbeats.
-- [ ] 30 min: Test interleaved products, heartbeat loss, reconnect snapshot overlap and cancellation during retry; verify public BTC/ETH updates.
+- [ ] 50 min: Implement reconnect, session diagnostics and continuity indicators; reset backoff after a stable subscription with healthy heartbeat.
+- [ ] 30 min: Test interleaved products, heartbeat loss, reconnect last_match overlap and cancellation during retry; verify public BTC/ETH updates.
 - [ ] 10 min: Run checks and note that missed market events are not backfilled.
 
-**Definition of done:** One product cannot close another's windows; reconnect restores trades and heartbeats without duplicate readers; snapshots do not alter retained state. Unresolved sequence scope is documented rather than guessed.
+**Definition of done:** One product cannot close another's windows; reconnect restores trades and heartbeat without duplicate readers; snapshots do not alter retained state. Unresolved sequence scope is documented rather than guessed.
 
 **Decision to make:** Keep SOL deferred if adding it would consume validation time; two symbols satisfy the minimum multi-symbol gate.
 
@@ -307,7 +321,7 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Tasks:**
 
-- [ ] 30 min: Assemble earlier regression cases, including nested batches, reconnect snapshots, heartbeat-only idle, future outliers and repeated replay.
+- [ ] 30 min: Assemble earlier regression cases, including individual match messages, reconnect last_match, heartbeat-only idle, future outliers and repeated replay.
 - [ ] 25 min: Add `task test:race`, run checks and reproduce lifecycle/overload failures without needing the provider to misbehave.
 - [ ] 50 min: Debug and correct the highest-priority problems yourself; Codex may review and suggest investigations.
 - [ ] 15 min: Re-run affected cases and record unresolved blockers before scheduling UI work.
@@ -324,12 +338,12 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Concepts to learn:** Throughput versus latency, histogram precision, observational overhead, immutable snapshots.
 
-**Architectural guidance:** Report decoded update trades/sec before validation/admission as ingestion throughput, and incorporated trades/sec as processing throughput. Keep message rate, snapshot exclusions and rolling market intensity separate. Measure local receive-to-processing-completion duration including decoding and queue wait; it excludes provider batching/network transit. Use a bounded histogram for approximate p50/p95/p99 and report population, sample count/range/overflow. Do not present p99 as stable with sparse data. Snapshot copies must not race with the state owner.
+**Architectural guidance:** Report decoded match trades/sec before validation/admission as ingestion throughput, and incorporated trades/sec as processing throughput. Keep message rate, last_match exclusions and rolling market intensity separate. Measure local receive-to-processing-completion duration including decoding and queue wait; it excludes provider batching/network transit. Use a bounded histogram for approximate p50/p95/p99 and report population, sample count/range/overflow. Do not present p99 as stable with sparse data. Snapshot copies must not race with the state owner.
 
 **Tasks:**
 
 - [ ] 20 min: Choose latency boundaries, histogram precision and reporting period; define ingestion/processing rates and accepted, incorporated, rejection, queue and reconnect metrics.
-- [ ] 55 min: Implement metrics and a coherent snapshot with heartbeat age/transport health, per-product staleness, continuity warnings, ignored snapshots, backlog, analytics and capped histories.
+- [ ] 55 min: Implement metrics and a coherent snapshot with heartbeat age/transport health, per-product staleness, continuity warnings, ignored last_match messages, backlog, analytics and capped histories.
 - [ ] 30 min: Document `/healthz` and `/events`, units, schema version, string IDs, unavailable values and full-snapshot reconnect behavior. Compare snapshot fields to the dashboard checklist.
 - [ ] 15 min: Validate a fixture snapshot and metric counts; verify that instrumentation has bounded memory.
 
@@ -366,7 +380,7 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Concepts to learn:** Typed API consumption, render cadence, connection state, accessible data presentation.
 
-**Architectural guidance:** This is the first frontend implementation block. Codex may use Vite, React, TypeScript, Tailwind CSS and Bun under `web/`. Prefer simple SVG price movement, compact tables/cards and a single EventSource. Pair selection uses the backend's product keys and filters subscribed data locally; label the source Coinbase Advanced Trade. Show transport health separately from market freshness; omit trade-direction coloring unless explicitly labeled as maker side. The human handles any required backend contract change.
+**Architectural guidance:** This is the first frontend implementation block. Codex may use Vite, React, TypeScript, Tailwind CSS and Bun under `web/`. Prefer simple SVG price movement, compact tables/cards and a single EventSource. Pair selection uses the backend's product keys and filters subscribed data locally; label the source Coinbase Exchange. Show transport health separately from market freshness; omit trade-direction coloring unless explicitly labeled as maker side. The human handles any required backend contract change.
 
 **Tasks:**
 
@@ -406,7 +420,7 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Concepts to learn:** Benchmark scope, allocations/op, throughput, latency distributions, workload validity.
 
-**Architectural guidance:** Benchmark normalized analytics separately from batched-envelope decode-plus-processing and the live-style queue. Keep fixture creation/reporting outside timed work. Go benchmark `ns/op` is not p99. Use controlled offered load with queue metrics and completion latency to show saturation; a synchronous driver alone hides queueing. Provider batching affects delivery cadence independently of Rill's measured internal latency. No arbitrary low-latency target is a release requirement.
+**Architectural guidance:** Benchmark normalized analytics separately from match-message decode-plus-processing and the live-style queue. Keep fixture creation/reporting outside timed work. Go benchmark `ns/op` is not p99. Use controlled offered load with queue metrics and completion latency to show saturation; a synchronous driver alone hides queueing. Provider batching affects delivery cadence independently of Rill's measured internal latency. No arbitrary low-latency target is a release requirement.
 
 **Tasks:**
 
@@ -461,11 +475,15 @@ Each checklist allocates all 120 minutes. Read only the resource sections needed
 
 **Decision to make:** Publish the measured limitations in the README rather than hiding them behind a feature list.
 
+## Optional weekend contingency — October 24–25 (up to six 2-hour blocks)
+
+Only schedule C1–C6 after the Friday Block 16 checkpoint. Prioritize unfinished Exchange protocol correctness and recovery; then replay/window correctness; then backpressure, dashboard integration, race checks, profiling and documentation. These are **not new features**. Record time spent and remaining blockers. If all acceptance gates pass Friday, stop Friday. Otherwise Sunday October 25 at 11:59 PM IST is the final checkpoint, and an incomplete gate must be reported honestly.
+
 ## Final verification checklist
 
-- [ ] Public BTC-USD/ETH-USD updates and heartbeats observed without credentials; reconnect/cancellation checked; continuity uncertainty acknowledged.
+- [ ] Public BTC-USD/ETH-USD updates and heartbeat observed without credentials; reconnect/cancellation checked; continuity uncertainty acknowledged.
 - [ ] Fixed/rolling fixtures cover boundaries, ordering, lateness, duplicates, long gaps, stale symbols, zero volume and numeric rejection.
-- [ ] Repeated envelope replays give the same results/counters, including ignored snapshots and partial EOF; heartbeat-only input cannot advance analytics.
+- [ ] Repeated message replays give the same results/counters, including ignored last_match messages and partial EOF; heartbeat-only input cannot advance analytics.
 - [ ] Accepted-event accounting balances after draining; all state/history/client/message limits and overload outcomes are explicit.
 - [ ] Relevant Task checks, race detection and frontend type/build checks pass; executed commands and limits of coverage are recorded.
 - [ ] Live/replay UI, product selection, separate transport/freshness states and slow-client isolation checked at desktop/mobile sizes.
