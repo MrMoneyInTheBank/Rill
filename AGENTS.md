@@ -13,7 +13,7 @@ Unless the human explicitly overrides the relevant restriction, AI must never:
 - Silently fix backend defects or change backend files while implementing the frontend.
 - Reveal a complete implementation of a problem the human is actively solving.
 
-An ordinary request to review, explain, debug, test, or prepare a commit is not an override. An explicit exception applies only to the scope the human authorizes; other restrictions remain in force. Delegation cannot expand permissions.
+An ordinary request to review, explain, debug, test, or prepare or create commits is not an override of backend ownership. Permission to stage and commit human-written Go changes does not permit editing or generating Go code. An explicit exception applies only to the scope the human authorizes; other restrictions remain in force. Delegation cannot expand permissions.
 
 AI may read and analyze backend code; explain concepts and APIs; review architecture; identify bugs, races, deadlocks, leaks, and performance problems; analyze logs; recommend official documentation; and author project-management Markdown. It may run existing tests, benchmarks, race detection, and profiling when appropriate, after checking that the command will not rewrite backend source or generate implementations.
 
@@ -58,9 +58,11 @@ Never request, print, embed in source, or commit API credentials. Do not read lo
 
 ## Git boundaries
 
-Read-only status and diff inspection are allowed. Git operations are human-owned by default. Explicit user authorization may permit a specific documentation-only Git update; it does not authorize other changes. Otherwise AI must not stage, commit, create branches/tags/PRs, amend, rewrite history, push, install hooks, or configure repository integrations or GitHub Actions/CI. Linear is an overview and roadmap only; assigning or completing an issue does not authorize code execution or Git activity. Never delegate issues to an autonomous coding agent through Linear.
+Read-only status and diff inspection are allowed. When the human asks AI to commit changes, AI may analyze the requested diff, choose coherent atomic commit boundaries, stage the corresponding files or hunks, and create commits with appropriate messages. This includes human-written Go changes and requires no separate approval for each commit. A request only to review or suggest commits does not authorize staging or committing.
 
-AI may describe suggested commit boundaries and review human-prepared diffs without altering the index or repository. Never commit secrets, credential files, generated binaries, or unrelated changes. Only a future explicit human override of this restriction can authorize a specific Git mutation. Follow [the human-only commit workflow](docs/skills/commits.md).
+Commit permission never grants backend implementation permission. Preserve working-tree contents and existing staged changes; split commits through selective staging, without editing Go files or inventing intermediate implementations. Aim for as many meaningful, independently understandable commits as the changes support, without fragmenting a single logical change or knowingly creating broken intermediate states. Report defects for the human to fix rather than silently correcting them.
+
+Creating branches/tags/PRs, amending or rewriting history, pushing, installing hooks, and configuring repository integrations or GitHub Actions/CI require separate explicit authorization. Never commit secrets, credential files, generated binaries, or unrelated changes. Linear is an overview and roadmap only; assigning or completing an issue does not authorize code execution or Git activity. Never delegate issues to an autonomous coding agent through Linear. Follow [the commit workflow](docs/skills/commits.md).
 
 ## Initial planning scope
 

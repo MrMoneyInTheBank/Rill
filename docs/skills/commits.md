@@ -1,13 +1,15 @@
-# Human-only Git workflow
+# AI-assisted atomic commit workflow
 
-All Git operations belong to the human under [AGENTS.md](../../AGENTS.md). Linear is a roadmap, not an execution or Git automation system.
+This workflow operates under [AGENTS.md](../../AGENTS.md). The human owns all backend implementation. AI may stage and commit human-written changes when asked, without editing or generating Go code. Linear is a roadmap, not an execution or Git automation system.
 
-1. AI may inspect relevant files and read-only diffs, identify unrelated changes, and suggest logical commit boundaries.
-2. AI may run existing source-preserving verification when requested; it reports failures for the human to fix.
-3. The human alone stages, creates branches, commits, tags, opens pull requests, pushes, amends or otherwise manages Git history.
-4. AI must not configure hooks, repository integrations or GitHub Actions/CI, or delegate Linear issues to autonomous coding agents.
-5. A roadmap issue, review request or issue-status change never grants Git permission. A future explicit override must identify the particular Git mutation authorized.
+1. Establish the requested scope. Inspect repository status, staged and unstaged diffs, relevant untracked files, and surrounding code. A request to commit authorizes selective staging and commit creation within that scope; a request only to review or suggest commits does not. Do not request approval again for each authorized commit.
+2. Review the changes using [the review workflow](review.md). Run appropriate existing source-preserving checks after inspecting their commands and dependencies. Report failures and defects for the human to fix; do not edit backend code or generate missing tests. If a Blocking finding affects a proposed commit, leave that change uncommitted and explain the blocker; continue with independent, unaffected changes when possible.
+3. Identify coherent atomic changes and order dependencies first. Make as many meaningful commits as the diff supports, with each commit explaining one logical change. Keep necessary implementation, tests, and documentation together. Avoid arbitrary fragmentation and knowingly broken intermediate states. When changes cannot be separated safely without backend edits, keep them together or explain the limitation.
+4. Preserve working-tree contents and the human's existing staging choices. Inspect the index before staging, use explicit paths or selective hunks, and verify each staged diff before committing. Do not sweep unrelated staged changes into a commit or overwrite existing index contents to force a split. If existing staging prevents the requested grouping, ask only for the specific decision needed. Never include secrets, credential files, generated binaries, or unrelated changes.
+5. Create commits on the current branch with concise, descriptive, imperative messages that explain the actual change. Follow an established repository message convention when present. Staging human-written Go hunks is allowed; editing Go files or synthesizing new backend code in the index is not. Do not bypass failing hooks or run hooks that rewrite backend source; inspect configured hooks before committing and report any conflict with these rules.
+6. Verify the resulting commits and final repository status. Report commit hashes, messages, what each contains, verification commands and outcomes, checks not performed, and anything left uncommitted. Do not claim intermediate commits were tested unless they were.
+7. Creating branches, tags or pull requests, pushing, amending or rewriting history, installing hooks, and configuring integrations or CI require separate explicit authorization. A roadmap issue, review request or issue-status change does not grant Git permission. Never delegate Linear issues to autonomous coding agents.
 
 Reusable request:
 
-> Review my diff and suggest coherent commit boundaries and messages. Report relevant verification results. Leave all Git actions to me: do not stage, commit, branch, tag, push, create pull requests, configure hooks/CI, or change history. Do not write or edit backend code.
+> Review my diff and commit the requested changes into as many coherent atomic commits as practical, with appropriate commit messages. Run relevant existing source-preserving checks and report the results, commits, and anything left uncommitted. Do not edit or generate Go code. Do not push, change branches, amend or rewrite history, or configure hooks/CI.
