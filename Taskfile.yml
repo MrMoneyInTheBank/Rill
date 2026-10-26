@@ -1,0 +1,15 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+  run:
+    desc: Run Rill
+    cmds:
+      - go run ./cmd/feed
+  fmt:
+    desc: Format Go source files
+    cmds:
+      - gofmt -w ./cmd ./internal
