@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -62,10 +63,16 @@ func main() {
 				return
 			}
 
-			log.Printf("Error reading WebSocket message: %v", err)
+			log.Printf("Error reading WebSocket message: %v\n", err)
 			return
 		}
 
-		log.Println(messages.ParseMsg(response))
+		msg, data, err := messages.ParseMsg(response)
+		if err != nil {
+			log.Printf("Error parsing WebSocket message: %v\n", err)
+		}
+
+		fmt.Println(msg)
+		log.Println(data)
 	}
 }
