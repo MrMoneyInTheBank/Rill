@@ -1,6 +1,8 @@
 # Rill — prepared Linear roadmap
 
-**Status: prepared in repository, NOT created in Linear.**
+**Status: historical prepared export, superseded by the [current Linear project/issues](https://linear.app/buggsforge/project/rill-1b297c159e00).**
+
+The October 27, 2026 provider revision uses credential-free Advanced Trade `level2`, `market_trades` and plural `heartbeats`, with the existing order-book issue promoted to core after Block 04. See the current context in [todo.md](../todo.md) and each live Linear issue for guided tasks and acceptance evidence. The old dates, timeboxes, Exchange-specific assumptions, optional-book scope and creation instructions below are archival. The sibling `linear-roadmap.json` is also a historical import specification, not a current issue export; do not use it to overwrite the live roadmap.
 
 Team: `buggsforge` · Project: `rill` · Core checkpoint: Friday October 23, 2026 23:59 IST · Optional deadline: Sunday October 25, 2026 23:59 IST.
 
