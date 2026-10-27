@@ -38,7 +38,7 @@ type HeartbeatsMsg struct {
 
 type TradesMsg struct {
 	BaseMsg
-	Events TradeEvent `json:"events"`
+	Events []TradeEvent `json:"events"`
 }
 
 type Level2Msg struct {
