@@ -11,7 +11,7 @@ func ParseMsg(data []byte) (string, string, error) {
 	var frame MsgFrame
 
 	if err := json.Unmarshal(data, &frame); err != nil {
-		return "", "", err
+		return "Failed parsing message", string(data), err
 	}
 
 	switch frame.Channel {
