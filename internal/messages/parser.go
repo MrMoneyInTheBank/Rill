@@ -11,7 +11,7 @@ func ParseMsg(data []byte) (Msg, error) {
 	var baseMsg BaseMsg
 
 	if err := json.Unmarshal(data, &baseMsg); err != nil {
-		return nil, fmt.Errorf("Error parsing message: %v", string(data))
+		return nil, fmt.Errorf("Error parsing message: %v\n Error: %v", string(data), err)
 	}
 
 	switch baseMsg.Channel {
