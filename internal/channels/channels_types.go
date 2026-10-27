@@ -7,5 +7,5 @@ const (
 	Level2Channel        Channel = "level2"
 	Level2DataChannel    Channel = "l2_data"
 	MarketTradesChannel  Channel = "market_trades"
-	SubscriptionaChannel Channel = "subscriptions"
+	SubscriptionsChannel Channel = "subscriptions"
 )

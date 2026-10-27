@@ -1,8 +1,6 @@
 package messages
 
 import (
-	"encoding/json"
-
 	"github.com/MrMoneyInTheBank/rill/internal/channels"
 )
 
@@ -12,9 +10,9 @@ type BaseMsg struct {
 	SequenceNum int              `json:"sequence_num"`
 }
 
-type MsgFrame struct {
+type SubscriptionMsg struct {
 	BaseMsg
-	Events json.RawMessage `json:"events"`
+	Events []SubscriptionEvent `json:"events"`
 }
 
 type HeartbeatsMsg struct {

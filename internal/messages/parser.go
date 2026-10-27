@@ -7,28 +7,39 @@ import (
 	"github.com/MrMoneyInTheBank/rill/internal/channels"
 )
 
-func ParseMsg(data []byte) (string, string, error) {
-	var frame MsgFrame
+func ParseMsg(data []byte) (Msg, error) {
+	var baseMsg BaseMsg
 
-	if err := json.Unmarshal(data, &frame); err != nil {
-		return "Failed parsing message", string(data), err
+	if err := json.Unmarshal(data, &baseMsg); err != nil {
+		return nil, fmt.Errorf("Error parsing message: %v", string(data))
 	}
 
-	switch frame.Channel {
-	case channels.SubscriptionaChannel:
-		return "Subscription acknowledged", string(data), nil
+	switch baseMsg.Channel {
+	case channels.SubscriptionsChannel:
+		var subMsg SubscriptionMsg
+		if err := json.Unmarshal(data, &subMsg); err != nil {
+			return nil, err
+		}
+		return subMsg, nil
 	case channels.HeartbeatsChannel:
-		var hbEvents []HeartbeatEvent
-		if err := json.Unmarshal(frame.Events, &hbEvents); err != nil {
-			return "Failed parsing heartbeats", string(data), err
+		var hbMsg HeartbeatsMsg
+		if err := json.Unmarshal(data, &hbMsg); err != nil {
+			return nil, err
 		}
-		if len(hbEvents) > 0 {
-			msg := fmt.Sprintf("[Seq: %d] Heartbeat counter: %v", frame.SequenceNum, hbEvents[0].HeartbeatCounter)
-			return msg, string(data), nil
-		} else {
-			return "No heartbeats", string(data), nil
+		return hbMsg, nil
+	case channels.Level2DataChannel:
+		var l2Msg Level2Msg
+		if err := json.Unmarshal(data, &l2Msg); err != nil {
+			return nil, err
 		}
+		return l2Msg, nil
+	case channels.MarketTradesChannel:
+		var tradesMsg TradesMsg
+		if err := json.Unmarshal(data, &tradesMsg); err != nil {
+			return nil, err
+		}
+		return tradesMsg, nil
 	default:
-		return "Unknown message", string(data), nil
+		return nil, fmt.Errorf("Unsupported channel for parsing: %v", baseMsg)
 	}
-} // Intentionally incapable
+}

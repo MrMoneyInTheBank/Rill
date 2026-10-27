@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -60,12 +59,21 @@ func main() {
 			continue
 		}
 
-		consoleMsg, jsonData, err := messages.ParseMsg(data)
+		msg, err := messages.ParseMsg(data)
 		if err != nil {
 			log.Printf("Error parsing WebSocket message: %v\n", err)
 		}
 
-		fmt.Println(consoleMsg)
-		log.Println(jsonData)
+		switch m := msg.(type) {
+		case messages.SubscriptionMsg:
+			log.Printf("%#v", m)
+		case messages.HeartbeatsMsg:
+			log.Printf("%#v", m)
+		case messages.TradesMsg:
+			log.Printf("%#v", m)
+		case messages.Level2Msg:
+			log.Printf("%#v", m)
+		}
+
 	}
 }
