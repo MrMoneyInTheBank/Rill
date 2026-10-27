@@ -26,8 +26,7 @@ func main() {
 
 	conn, err := stream.Connect(ctx, endpoint, nil)
 	if err != nil {
-		log.Printf("Could not establish websocket connection: %v\n", err)
-		return
+		log.Fatalf("Could not establish websocket connection: %v\n", err)
 	}
 	log.Println("Established websocket connection.")
 	defer conn.Close(websocket.StatusNormalClosure, "Closing connection")
@@ -42,8 +41,7 @@ func main() {
 
 	err = stream.SendMsg(ctx, conn, subscribeReq)
 	if err != nil {
-		log.Printf("Error sending subscription message: %v\n", err)
-		return
+		log.Fatalf("Error sending subscription message: %v\n", err)
 	}
 	log.Printf("Request subscription to %v channels for product %v\n", subscribeReq.Channel, subscribeReq.ProductIDs)
 
@@ -54,8 +52,7 @@ func main() {
 				log.Println("Shutdown requested")
 				return
 			}
-			log.Printf("Error reading WebSocket message: %v\n", err)
-			return
+			log.Fatalf("Error reading WebSocket message: %v\n", err)
 		}
 
 		if msgType != websocket.MessageText {
