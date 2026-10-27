@@ -18,13 +18,6 @@ import (
 const endpoint string = "wss://advanced-trade-ws.coinbase.com"
 
 func main() {
-	logfile, err := os.OpenFile("feed.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		log.Fatalf("Could not prepare log file: %v", err)
-	}
-	defer logfile.Close()
-	log.SetOutput(logfile)
-
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		os.Interrupt,
