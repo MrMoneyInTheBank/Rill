@@ -27,7 +27,7 @@ func Connect(ctx context.Context, endpoint string, readSize *int64) (*websocket.
 	return conn, nil
 }
 
-func SendMsg(ctx context.Context, conn *websocket.Conn, msg messages.Msg) error {
+func SendMsg(ctx context.Context, conn *websocket.Conn, msg messages.Req) error {
 	err := wsjson.Write(ctx, conn, msg)
 	if err != nil {
 		return err

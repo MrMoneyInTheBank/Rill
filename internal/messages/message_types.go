@@ -12,20 +12,6 @@ type BaseMsg struct {
 	SequenceNum int              `json:"sequence_num"`
 }
 
-type SubscribeMsg struct {
-	Type       string           `json:"type"`
-	ProductIDs []string         `json:"product_ids,omitempty"`
-	Channel    channels.Channel `json:"channel"`
-	JWT        string           `json:"jwt,omitempty"`
-}
-
-type UnsubscribeMsg struct {
-	Type       string           `json:"type"`
-	ProductIDs []string         `json:"product_ids,omitempty"`
-	Channel    channels.Channel `json:"channel"`
-	JWT        string           `json:"jwt,omitempty"`
-}
-
 type MsgFrame struct {
 	BaseMsg
 	Events json.RawMessage `json:"events"`
@@ -50,5 +36,4 @@ type Msg interface {
 	isMsg()
 }
 
-func (BaseMsg) isMsg()      {}
-func (SubscribeMsg) isMsg() {}
+func (BaseMsg) isMsg() {}
