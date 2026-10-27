@@ -1,5 +1,11 @@
 package messages
 
+// Subscription (placeholder)
+
+type SubscriptionEvent struct {
+	Subscriptions map[string][]string `json:"subscriptions"`
+}
+
 // Heartbeat
 
 type HeartbeatEvent struct {
