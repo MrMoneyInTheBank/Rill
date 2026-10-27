@@ -15,7 +15,7 @@ import (
 	"github.com/MrMoneyInTheBank/rill/internal/stream"
 )
 
-const endpoint string = "wss://ws-feed.exchange.coinbase.com"
+const endpoint string = "wss://advanced-trade-ws.coinbase.com"
 
 func main() {
 	logfile, err := os.OpenFile("feed.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -39,12 +39,12 @@ func main() {
 	log.Println("Established websocket connection.")
 	defer conn.Close(websocket.StatusNormalClosure, "Closing connection")
 
+	jwtToken := os.Getenv("JWT_TOKEN")
+
 	subscribeMsg := messages.SubscribeMsg{
-		Type:       "subscribe",
-		ProductIDs: []string{"BTC-USD"},
-		Channels: []channels.Channel{
-			channels.HeartbeatChannel,
-		},
+		Type:    "subscribe",
+		Channel: channels.HeartbeatsChannel,
+		JWT:     jwtToken,
 	}
 
 	err = stream.SendMsg(ctx, conn, subscribeMsg)
@@ -52,27 +52,30 @@ func main() {
 		log.Printf("Error sending subscription message: %v\n", err)
 		return
 	}
-	log.Printf("Subscribed to %v channels for product %v\n", subscribeMsg.Channels, subscribeMsg.ProductIDs)
+	log.Printf("Subscribed to %v channels for product %v\n", subscribeMsg.Channel, subscribeMsg.ProductIDs)
 
 	for {
-		var response map[string]any
-
-		if err := stream.ReadMsg(ctx, conn, &response); err != nil {
+		msgType, data, err := conn.Read(ctx)
+		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 				log.Println("Shutdown requested")
 				return
 			}
-
 			log.Printf("Error reading WebSocket message: %v\n", err)
 			return
 		}
 
-		msg, data, err := messages.ParseMsg(response)
+		if msgType != websocket.MessageText {
+			log.Printf("Warning: received non-text message frame type (%v). Skipping payload.\n", msgType)
+			continue
+		}
+
+		consoleMsg, jsonData, err := messages.ParseMsg(data)
 		if err != nil {
 			log.Printf("Error parsing WebSocket message: %v\n", err)
 		}
 
-		fmt.Println(msg)
-		log.Println(data)
+		fmt.Println(consoleMsg)
+		log.Println(jsonData)
 	}
 }

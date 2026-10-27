@@ -1,20 +1,10 @@
 package channels
 
-type ChannelName string
+type Channel string
 
 const (
-	HeartbeatChannel   ChannelName = "heartbeat"
-	Level2BatchChannel ChannelName = "level2_batch"
+	HeartbeatsChannel    Channel = "heartbeats"
+	Level2Channel        Channel = "level2"
+	MarketTradesChannel  Channel = "market_trades"
+	SubscriptionaChannel Channel = "subscriptions"
 )
-
-type ChannelSpec struct {
-	Name       ChannelName `json:"name"`
-	ProductIDs []string    `json:"product_ids,omitempty"`
-}
-
-type Channel interface {
-	isChannel()
-}
-
-func (ChannelName) isChannel() {}
-func (ChannelSpec) isChannel() {}

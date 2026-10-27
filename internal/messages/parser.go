@@ -2,26 +2,33 @@ package messages
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	"github.com/MrMoneyInTheBank/rill/internal/channels"
 )
 
-func ParseMsg(msg map[string]any) (string, string, error) {
-	if _, ok := msg["type"]; !ok {
-		return "Unknown event", "", errors.New("Websocket message does not contain field \"type\"")
+func ParseMsg(data []byte) (string, string, error) {
+	var frame MsgFrame
+
+	if err := json.Unmarshal(data, &frame); err != nil {
+		return "", "", err
 	}
 
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return "Error", "", err
-	}
-
-	switch msg["type"] {
-	case "heartbeat":
-		return fmt.Sprintf("❤️ for %s", msg["product_id"]), string(data), nil
-	case "subscriptions":
+	switch frame.Channel {
+	case channels.SubscriptionaChannel:
 		return "Subscription acknowledged", string(data), nil
+	case channels.HeartbeatsChannel:
+		var hbEvents []HeartbeatEvent
+		if err := json.Unmarshal(frame.Events, &hbEvents); err != nil {
+			return "Failed parsing heartbeats", "", err
+		}
+		if len(hbEvents) > 0 {
+			msg := fmt.Sprintf("[Seq: %d] Heartbeat counter: %v", frame.SequenceNum, hbEvents[0].HeartbeatCounter)
+			return msg, string(data), nil
+		} else {
+			return "No heartbeats", string(data), nil
+		}
 	default:
-		return "Unknown event", string(data), nil
+		return "Unknown message", string(data), nil
 	}
 } // Intentionally incapable
