@@ -34,11 +34,3 @@ func SendMsg(ctx context.Context, conn *websocket.Conn, msg messages.Msg) error 
 	}
 	return nil
 }
-
-func ReadMsg(ctx context.Context, conn *websocket.Conn, buffer *map[string]any) error {
-	err := wsjson.Read(ctx, conn, buffer)
-	if err != nil {
-		return err
-	}
-	return nil
-}
