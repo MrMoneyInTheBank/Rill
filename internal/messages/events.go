@@ -25,8 +25,8 @@ type Trade struct {
 }
 
 type TradeEvent struct {
-	Type   string `json:"type"`
-	Trades []Trade
+	Type   string  `json:"type"`
+	Trades []Trade `json:"trades"`
 }
 
 // L2
