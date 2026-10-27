@@ -61,7 +61,7 @@ func main() {
 
 		msg, err := messages.ParseMsg(data)
 		if err != nil {
-			log.Printf("Error parsing WebSocket message: %v\n", err)
+			log.Printf("Error parsing WebSocket message: %v\nError: %v", string(data), err)
 		}
 
 		switch m := msg.(type) {
