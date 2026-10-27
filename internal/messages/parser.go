@@ -20,7 +20,7 @@ func ParseMsg(data []byte) (string, string, error) {
 	case channels.HeartbeatsChannel:
 		var hbEvents []HeartbeatEvent
 		if err := json.Unmarshal(frame.Events, &hbEvents); err != nil {
-			return "Failed parsing heartbeats", "", err
+			return "Failed parsing heartbeats", string(data), err
 		}
 		if len(hbEvents) > 0 {
 			msg := fmt.Sprintf("[Seq: %d] Heartbeat counter: %v", frame.SequenceNum, hbEvents[0].HeartbeatCounter)
