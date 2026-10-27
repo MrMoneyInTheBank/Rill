@@ -52,7 +52,7 @@ func main() {
 		log.Printf("Error sending subscription message: %v\n", err)
 		return
 	}
-	log.Printf("Subscribed to %v channels for product %v\n", subscribeMsg.Channel, subscribeMsg.ProductIDs)
+	log.Printf("Request subscription to %v channels for product %v\n", subscribeMsg.Channel, subscribeMsg.ProductIDs)
 
 	for {
 		msgType, data, err := conn.Read(ctx)
