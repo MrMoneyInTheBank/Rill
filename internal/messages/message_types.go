@@ -31,7 +31,9 @@ type Level2Msg struct {
 }
 
 type Msg interface {
-	isMsg()
+	GetChannel() channels.Channel
 }
 
-func (BaseMsg) isMsg() {}
+func (b BaseMsg) GetChannel() channels.Channel {
+	return b.Channel
+}
