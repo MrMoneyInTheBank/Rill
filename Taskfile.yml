@@ -10,7 +10,7 @@ tasks:
   run:
     desc: Run Rill
     cmds:
-      - go run ./cmd/feed
+      - go run ./cmd/feed {{.CLI_ARGS}}
   fmt:
     desc: Format Go source files
     cmds:
