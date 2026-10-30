@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/coder/websocket"
@@ -10,7 +11,19 @@ import (
 	"github.com/MrMoneyInTheBank/rill/internal/messages"
 )
 
-func Connect(ctx context.Context, endpoint string, readSize *int64) (*websocket.Conn, error) {
+var ErrInvalidReadSize = errors.New("ReadSize must point to -1 or a positive integer")
+
+func Connect(ctx context.Context, endpoint string, maxReadSize *int64) (*websocket.Conn, error) {
+	// nil maxReadSize falls back to default ReadLimit of 8MiB
+	// Size chosen based on empirical results during testing
+	var readLimit int64 = 8 << 20
+	if maxReadSize != nil {
+		if *maxReadSize <= 0 && *maxReadSize != -1 {
+			return nil, ErrInvalidReadSize
+		}
+		readLimit = *maxReadSize
+	}
+
 	dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*10)
 	conn, _, err := websocket.Dial(dialCtx, endpoint, nil)
 	dialCancel()
@@ -19,18 +32,11 @@ func Connect(ctx context.Context, endpoint string, readSize *int64) (*websocket.
 		return nil, err
 	}
 
-	conn.SetReadLimit(4 << 20) // temp buffer size 4 MiB
-	if readSize != nil {
-		conn.SetReadLimit(*readSize)
-	}
+	conn.SetReadLimit(readLimit)
 
 	return conn, nil
 }
 
 func SendMsg(ctx context.Context, conn *websocket.Conn, msg messages.Req) error {
-	err := wsjson.Write(ctx, conn, msg)
-	if err != nil {
-		return err
-	}
-	return nil
+	return wsjson.Write(ctx, conn, msg)
 }

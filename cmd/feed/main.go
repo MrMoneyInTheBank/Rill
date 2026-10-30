@@ -32,8 +32,7 @@ func main() {
 		log.Printf("JWT token set; Can attempt to connect to all channels")
 	}
 
-	var readLimit int64 = -1
-	conn, err := stream.Connect(ctx, endpoint, &readLimit)
+	conn, err := stream.Connect(ctx, endpoint, nil)
 	if err != nil {
 		log.Fatalf("Could not establish websocket connection: %v\n", err)
 	}
