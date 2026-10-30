@@ -23,14 +23,21 @@ func main() {
 	)
 	defer stop()
 
+	jwtToken, exists := os.LookupEnv("JWT_TOKEN")
+	if !exists {
+		log.Printf("JWT not provided. Can only connect to public channels")
+	} else if jwtToken == "" {
+		log.Printf("JWT unset. Can only connect to public channels")
+	} else {
+		log.Printf("JWT token set; Can attempt to connect to all channels")
+	}
+
 	conn, err := stream.Connect(ctx, endpoint, nil)
 	if err != nil {
 		log.Fatalf("Could not establish websocket connection: %v\n", err)
 	}
 	log.Println("Established websocket connection.")
 	defer conn.Close(websocket.StatusNormalClosure, "Closing connection")
-
-	jwtToken := os.Getenv("JWT_TOKEN")
 
 	subscribeReq := messages.SubscribeReq{
 		Type:    "subscribe",
