@@ -15,3 +15,7 @@ tasks:
     desc: Format Go source files
     cmds:
       - gofmt -w ./cmd ./internal
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./... {{.CLI_ARGS}}
