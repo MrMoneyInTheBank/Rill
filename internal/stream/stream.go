@@ -11,12 +11,14 @@ import (
 	"github.com/MrMoneyInTheBank/rill/internal/messages"
 )
 
+const defaultMaxReadSize int64 = 8 << 20
+
 var ErrInvalidReadSize = errors.New("ReadSize must point to -1 or a positive integer")
 
 func Connect(ctx context.Context, endpoint string, maxReadSize *int64) (*websocket.Conn, error) {
 	// nil maxReadSize falls back to default ReadLimit of 8MiB
 	// Size chosen based on empirical results during testing
-	var readLimit int64 = 8 << 20
+	var readLimit int64 = defaultMaxReadSize
 	if maxReadSize != nil {
 		if *maxReadSize <= 0 && *maxReadSize != -1 {
 			return nil, ErrInvalidReadSize
