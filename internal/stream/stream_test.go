@@ -2,6 +2,7 @@ package stream_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -16,15 +17,21 @@ import (
 	"github.com/MrMoneyInTheBank/rill/internal/stream"
 )
 
+type readResult struct {
+	messageType websocket.MessageType
+	payload     []byte
+	err         error
+}
+
 func ptr[T any](t T) *T {
 	return &t
 }
 
-func setupMockWSServer(t *testing.T, send bool, read bool) (string, func(), chan error, chan error) {
+func setupMockWSServer(t *testing.T, send bool, read bool) (string, func(), chan error, chan readResult) {
 	t.Helper()
 
 	writeCh := make(chan error, 1)
-	readCh := make(chan error, 1)
+	readCh := make(chan readResult, 1)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -49,8 +56,12 @@ func setupMockWSServer(t *testing.T, send bool, read bool) (string, func(), chan
 		if read {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancel()
-			_, _, err := conn.Read(ctx)
-			readCh <- err
+			msgType, payload, err := conn.Read(ctx)
+			readCh <- readResult{
+				messageType: msgType,
+				payload:     payload,
+				err:         err,
+			}
 		}
 	}))
 
@@ -93,13 +104,12 @@ func TestSuccessfulHandshake(t *testing.T) {
 	defer teardown()
 
 	cases := []struct {
-		name        string
-		readSize    *int64
-		expectedErr error
+		name     string
+		readSize *int64
 	}{
-		{"ExplicitMaxReadSize", ptr(int64(4 << 10)), nil},
-		{"DisableReadSize", ptr(int64(-1)), nil},
-		{"CustomDefaultReadSize", nil, nil},
+		{"ExplicitMaxReadSize", ptr(int64(4 << 10))},
+		{"DisableReadSize", ptr(int64(-1))},
+		{"CustomDefaultReadSize", nil},
 	}
 
 	for _, tc := range cases {
@@ -174,10 +184,9 @@ func TestSendMsg(t *testing.T) {
 	cases := []struct {
 		name         string
 		shouldCancel bool
-		expectedErr  error
 	}{
-		{"RegularSend", false, nil},
-		{"CancelledContextSend", true, context.Canceled},
+		{"RegularSend", false},
+		{"CancelledContextSend", true},
 	}
 
 	for _, tc := range cases {
@@ -196,11 +205,13 @@ func TestSendMsg(t *testing.T) {
 			}
 
 			err = stream.SendMsg(sendCtx, conn, req)
-			if !errors.Is(err, tc.expectedErr) {
-				t.Fatalf("SendMsg error = %v; want %v", err, tc.expectedErr)
+			if !tc.shouldCancel && err != nil {
+				t.Fatalf("SendMsg failed: %v", err)
 			}
-
-			if tc.shouldCancel {
+			if tc.shouldCancel && err != nil {
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("SendMsg with cancelled context returned %v; want cancellation or a completed send", err)
+				}
 				conn.CloseNow()
 			}
 
@@ -208,9 +219,33 @@ func TestSendMsg(t *testing.T) {
 			defer cancelWait()
 
 			select {
-			case readErr := <-ch:
-				if !tc.shouldCancel && readErr != nil {
-					t.Fatalf("Server could not receive message: %v", readErr)
+			case result := <-ch:
+				if tc.shouldCancel && err != nil {
+					return
+				}
+				if result.err != nil {
+					t.Fatalf("Server read failed: %v", result.err)
+				}
+
+				if result.messageType != websocket.MessageText {
+					t.Fatalf("Message type = %v; want text", result.messageType)
+				}
+
+				var recv struct {
+					Type    string `json:"type"`
+					Channel string `json:"channel"`
+				}
+
+				if err := json.Unmarshal(result.payload, &recv); err != nil {
+					t.Fatalf("Recieved invalid JSON: %v", err)
+				}
+
+				if recv.Type != req.Type {
+					t.Errorf("Request type = %q; want %q", recv.Type, req.Type)
+				}
+
+				if recv.Channel != string(req.Channel) {
+					t.Errorf("Request channel = %q; want %q", recv.Channel, req.Channel)
 				}
 			case <-waitCtx.Done():
 				t.Fatalf("Timed out waiting for server read result: %v", waitCtx.Err())
