@@ -25,9 +25,7 @@ func readLoop(ctx context.Context, conn *websocket.Conn) error {
 		}
 
 		if msgType != websocket.MessageText {
-
 			log.Printf("Warning: received non-text message frame type (%v). Skipping payload.\n", msgType)
-			return ErrInvalidMessageType
 		}
 
 		msg, err := messages.ParseMsg(data)
