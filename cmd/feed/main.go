@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/coder/websocket"
 
@@ -32,13 +33,6 @@ func main() {
 		log.Printf("JWT token set; Can attempt to connect to all channels")
 	}
 
-	conn, err := stream.Connect(ctx, endpoint, nil)
-	if err != nil {
-		log.Fatalf("Could not establish websocket connection: %v\n", err)
-	}
-	log.Println("Established websocket connection.")
-	defer conn.Close(websocket.StatusNormalClosure, "Closing connection")
-
 	heartbeatReq := messages.SubscribeReq{
 		Type:    "subscribe",
 		Channel: channels.HeartbeatsChannel,
@@ -63,13 +57,25 @@ func main() {
 		marketTradesReq,
 	}
 
+	conn, err := stream.Connect(ctx, endpoint, nil)
+	if err != nil {
+		log.Fatalf("Could not establish websocket connection: %v\n", err)
+	}
+	log.Println("Established websocket connection.")
+	defer conn.Close(websocket.StatusNormalClosure, "Closing connection")
+
+	subCtx, subCtxCancel := context.WithTimeout(ctx, time.Second*5)
+	defer subCtxCancel()
+
 	for _, req := range subscriptionReqs {
-		err = stream.SendMsg(ctx, conn, req)
+		err = stream.SendMsg(subCtx, conn, req)
 		if err != nil {
-			log.Fatalf("Error sending subscription message: %v\n", err)
+			log.Printf("Error sending subscription message: %v\n", err)
+			return
 		}
 		log.Printf("Request subscription to %v channels for product %v\n", req.Channel, req.ProductIDs)
 	}
+	subCtxCancel()
 
 	payloadSizes := make(map[channels.Channel][]int)
 	for {
