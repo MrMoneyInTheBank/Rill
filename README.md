@@ -10,7 +10,7 @@ The current application is a feed exploration tool. It connects to Coinbase Adva
 - [Task](https://taskfile.dev/) (`go-task/task`) available as `task`.
 - Network access to download Go dependencies and connect to `wss://advanced-trade-ws.coinbase.com` for live exploration.
 
-Run commands from the repository root. Go downloads module dependencies when needed. Public `level2`, `market_trades`, and `heartbeats` subscriptions require no account or credentials; no `.env` file is required. Task loads a local `.env` if present. The experiment currently reads optional `JWT_TOKEN` from its environment, but it is unnecessary for this public feed. Keep credentials out of source, logs, and Git.
+Run commands from the repository root. Go downloads module dependencies when needed. Public `level2`, `market_trades`, and `heartbeats` subscriptions require no account or credentials; no `.env` file is required. Task loads a local `.env` if present, but the feed no longer reads or sends JWTs. Keep credentials out of source, logs, and Git.
 
 ## Run and build
 
@@ -19,7 +19,7 @@ task
 task run
 ```
 
-`task` lists available commands. `task run` runs vet and tests, builds the application, then starts `build/rill`. Press Ctrl+C to request shutdown; the experiment logs collected payload sizes when it exits normally.
+`task` lists available commands. `task run` runs vet and tests, builds the application, then starts `build/rill`. Press Ctrl+C to request shutdown. The application releases its connection before reporting a returned error and exiting unsuccessfully.
 
 To build without starting the live feed:
 
@@ -35,7 +35,7 @@ Run the existing executable directly to skip rebuilding and verification:
 ./build/rill
 ```
 
-Use short, manually stopped exploration sessions: the current experiment retains one payload-size entry per decoded message, so retained state grows with the session. It does not reconnect automatically. A subscription-request log records sending a request; inspect received acknowledgments to establish subscription acceptance.
+The experiment logs sent requests and decoded received messages; it no longer collects payload-size histories. It does not reconnect automatically. A sent-request log records sending a request; inspect received acknowledgments to establish subscription acceptance. A parsing failure or non-text message currently ends the session rather than being skipped.
 
 ## Local commands
 
