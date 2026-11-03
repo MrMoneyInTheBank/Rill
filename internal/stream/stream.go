@@ -2,7 +2,7 @@ package stream
 
 import (
 	"context"
-	"errors"
+	"log"
 	"time"
 
 	"github.com/coder/websocket"
@@ -12,8 +12,6 @@ import (
 )
 
 const defaultMaxReadSize int64 = 8 << 20
-
-var ErrInvalidReadSize = errors.New("ReadSize must point to -1 or a positive integer")
 
 func Connect(ctx context.Context, endpoint string, maxReadSize *int64) (*websocket.Conn, error) {
 	// nil maxReadSize falls back to default ReadLimit of 8MiB
@@ -41,4 +39,15 @@ func Connect(ctx context.Context, endpoint string, maxReadSize *int64) (*websock
 
 func SendMsg(ctx context.Context, conn *websocket.Conn, msg messages.Req) error {
 	return wsjson.Write(ctx, conn, msg)
+}
+
+func SendMsgs(ctx context.Context, conn *websocket.Conn, msgs []messages.Req) error {
+	for _, msg := range msgs {
+		if err := SendMsg(ctx, conn, msg); err != nil {
+			return err
+		}
+		log.Printf("SENT request msg: %#v", msg)
+	}
+
+	return nil
 }
