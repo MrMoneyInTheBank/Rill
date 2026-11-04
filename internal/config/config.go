@@ -19,6 +19,10 @@ type Opts struct {
 	Product      string
 }
 
+func (opts Opts) String() string {
+	return fmt.Sprintf("OPTS=%#v", opts)
+}
+
 func ParseOptions(args []string) (Opts, error) {
 	var parsed Opts
 

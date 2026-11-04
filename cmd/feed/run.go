@@ -33,6 +33,8 @@ func run() error {
 		return err
 	}
 
+	log.Println(parsedOpts)
+
 	subscriptionReqs, err := messages.GetSubReqs(parsedOpts)
 	if err != nil {
 		return errors.Join(ErrBadSubReqs, err)
