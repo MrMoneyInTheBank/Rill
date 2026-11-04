@@ -29,6 +29,10 @@ func run() error {
 		return errors.Join(config.ErrBadFlags, err)
 	}
 
+	if err := config.ValidateOptions(parsedOpts); err != nil {
+		return err
+	}
+
 	subscriptionReqs, err := messages.GetSubReqs(parsedOpts)
 	if err != nil {
 		return errors.Join(ErrBadSubReqs, err)
