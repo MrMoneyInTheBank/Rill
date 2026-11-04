@@ -10,8 +10,6 @@ import (
 
 const restEndpoint = "https://api.coinbase.com/api/v3/brokerage/market/products/"
 
-var ErrInvalidProduct = errors.New("Invalid Product")
-
 func ValidateProduct(product string) (error, bool) {
 	url := restEndpoint + product
 	reqCtx, reqCtxCancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -33,7 +31,7 @@ func ValidateProduct(product string) (error, bool) {
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%w: %s", ErrInvalidProduct, product), false
+		return fmt.Errorf("%w: %s. StatusCode: %d", ErrCantValidate, product, res.StatusCode), false
 	}
 
 	return nil, true

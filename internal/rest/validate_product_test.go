@@ -14,7 +14,7 @@ func TestValidateProduct(t *testing.T) {
 		wantErr error
 	}{
 		{"ValidProduct", "BTC-USD", nil},
-		{"InvalidProduct", "abc", rest.ErrInvalidProduct},
+		{"InvalidProduct", "abc", rest.ErrCantValidate},
 	}
 
 	for _, tc := range cases {
