@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+
+	"github.com/MrMoneyInTheBank/rill/internal/rest"
 )
 
 type Opts struct {
@@ -41,6 +44,8 @@ func ParseOptions(args []string) (Opts, error) {
 		parsed.MarketTrades = true
 	}
 
+	parsed.Product = strings.TrimSpace(parsed.Product)
+
 	if flags.NArg() != 0 {
 		return parsed, errors.Join(ErrUnknownFlag, fmt.Errorf("unexpected argument %q", flags.Arg(0)))
 	}
@@ -49,5 +54,14 @@ func ParseOptions(args []string) (Opts, error) {
 }
 
 func ValidateOptions(opts Opts) error {
-	return nil // will handle validation logic later
+	if opts.Level2 || opts.MarketTrades {
+		if opts.Product == "" {
+			return ErrMissingProduct
+		}
+		if err, _ := rest.ValidateProduct(opts.Product); err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
