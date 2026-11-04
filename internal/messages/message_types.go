@@ -1,12 +1,14 @@
 package messages
 
 import (
+	"time"
+
 	"github.com/MrMoneyInTheBank/rill/internal/channels"
 )
 
 type BaseMsg struct {
 	Channel     channels.Channel `json:"channel"`
-	Timestamp   string           `json:"timestamp"`
+	Timestamp   time.Time        `json:"timestamp"`
 	SequenceNum int              `json:"sequence_num"`
 }
 

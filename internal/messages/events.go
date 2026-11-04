@@ -1,5 +1,11 @@
 package messages
 
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
+
 // Subscription (placeholder)
 
 type SubscriptionEvent struct {
@@ -9,8 +15,8 @@ type SubscriptionEvent struct {
 // Heartbeat
 
 type HeartbeatEvent struct {
-	CurrentTime      string `json:"current_time"`
-	HeartbeatCounter int    `json:"heartbeat_counter"`
+	CurrentTime      time.Time `json:"current_time"`
+	HeartbeatCounter int       `json:"heartbeat_counter"`
 }
 
 // Market Trades
@@ -31,12 +37,12 @@ const (
 )
 
 type Trade struct {
-	TradeID   string    `json:"trade_id"`
-	ProductID string    `json:"product_id"`
-	Price     string    `json:"price"`
-	Size      string    `json:"size"`
-	MakerSide TradeSide `json:"side"`
-	Time      string    `json:"time"`
+	TradeID   string          `json:"trade_id"`
+	ProductID string          `json:"product_id"`
+	Price     decimal.Decimal `json:"price"`
+	Size      decimal.Decimal `json:"size"`
+	MakerSide TradeSide       `json:"side"`
+	Time      time.Time       `json:"time"`
 }
 
 type TradeEvent struct {
@@ -62,10 +68,10 @@ const (
 )
 
 type L2Update struct {
-	Side       L2UpdateSide `json:"side"`
-	EventTime  string       `json:"event_time"`
-	PriceLevel string       `json:"price_level"`
-	NewQty     string       `json:"new_quantity"`
+	Side       L2UpdateSide    `json:"side"`
+	EventTime  time.Time       `json:"event_time"`
+	PriceLevel decimal.Decimal `json:"price_level"`
+	NewQty     decimal.Decimal `json:"new_quantity"`
 }
 
 type L2Event struct {
