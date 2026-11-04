@@ -44,7 +44,7 @@ tasks:
     desc: Build and run Rill
     deps: [build]
     cmds:
-      - "./{{.BUILD_DIR}}/{{.BINARY}}"
+      - "./{{.BUILD_DIR}}/{{.BINARY}} {{.CLI_ARGS}}"
 
   clean:
     desc: Remove build artifacts
