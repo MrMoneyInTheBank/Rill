@@ -2,6 +2,7 @@ package messages
 
 import (
 	"github.com/MrMoneyInTheBank/rill/internal/channels"
+	"github.com/MrMoneyInTheBank/rill/internal/config"
 )
 
 type SubscribeReq struct {
@@ -42,19 +43,35 @@ func NewSubscribeReq(channel channels.Channel, product_ids ...string) (Req, erro
 	}, nil
 }
 
-func GetSubReqs(product string, opts ...string) ([]Req, error) {
-	heartbeatReq, err := NewSubscribeReq(channels.HeartbeatsChannel)
-	if err != nil {
-		return nil, err
+func GetSubReqs(opts config.Opts) ([]Req, error) {
+	requests := make([]Req, 0, 3)
+
+	if opts.Heartbeats {
+		heartbeatsReq, err := NewSubscribeReq(channels.HeartbeatsChannel)
+		if err != nil {
+			return nil, err
+		}
+		requests = append(requests, heartbeatsReq)
+
 	}
-	level2Req, err := NewSubscribeReq(channels.Level2Channel, product)
-	if err != nil {
-		return nil, err
-	}
-	marketTradesReq, err := NewSubscribeReq(channels.MarketTradesChannel, product)
-	if err != nil {
-		return nil, err
+	if opts.Level2 {
+
+		level2Req, err := NewSubscribeReq(channels.Level2Channel, opts.Product)
+		if err != nil {
+			return nil, err
+		}
+
+		requests = append(requests, level2Req)
 	}
 
-	return []Req{heartbeatReq, level2Req, marketTradesReq}, nil
+	if opts.MarketTrades {
+
+		marketTradesReq, err := NewSubscribeReq(channels.MarketTradesChannel, opts.Product)
+		if err != nil {
+			return nil, err
+		}
+		requests = append(requests, marketTradesReq)
+	}
+
+	return requests, nil
 }
