@@ -1,9 +1,11 @@
 package rest
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 const restEndpoint = "https://api.coinbase.com/api/v3/brokerage/market/products/"
@@ -12,11 +14,22 @@ var ErrInvalidProduct = errors.New("Invalid Product")
 
 func ValidateProduct(product string) (error, bool) {
 	url := restEndpoint + product
+	reqCtx, reqCtxCancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer reqCtxCancel()
 
-	res, err := http.DefaultClient.Get(url)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
 	if err != nil {
-		return err, false
+		return errors.Join(ErrBadReq, err), false
 	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if errors.Is(reqCtx.Err(), context.DeadlineExceeded) {
+			return ErrReqTimedOut, false
+		}
+		return errors.Join(ErrReqFailed, err), false
+	}
+	reqCtxCancel()
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
