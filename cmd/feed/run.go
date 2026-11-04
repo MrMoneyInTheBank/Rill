@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -10,26 +11,35 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/MrMoneyInTheBank/rill/internal/config"
 	"github.com/MrMoneyInTheBank/rill/internal/messages"
 	"github.com/MrMoneyInTheBank/rill/internal/stream"
 )
 
 const (
 	websocketEndpoint string = "wss://advanced-trade-ws.coinbase.com"
-	BTCUSD            string = "BTC-USD"
 )
 
 func run() error {
+	parsedOpts, err := config.ParseOptions(os.Args[1:])
+	if err != nil {
+		if errors.Is(flag.ErrHelp, err) {
+			return nil
+		}
+		return errors.Join(config.ErrBadFlags, err)
+	}
+
+	subscriptionReqs, err := messages.GetSubReqs(parsedOpts)
+	if err != nil {
+		return errors.Join(ErrBadSubReqs, err)
+	}
+
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		os.Interrupt,
 	)
 	defer stop()
 
-	subscriptionReqs, err := messages.GetSubReqs(BTCUSD)
-	if err != nil {
-		return errors.Join(ErrBadSubReqs, err)
-	}
 	conn, err := stream.Connect(ctx, websocketEndpoint, nil)
 	if err != nil {
 		return errors.Join(ErrBadConnection, err)
