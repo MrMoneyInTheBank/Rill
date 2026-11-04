@@ -51,6 +51,9 @@ func NormalizeTrade(t messages.Trade, recvTime time.Time) (Trade, error) {
 }
 
 func NormalizeTrades(msg messages.TradesMsg) ([]Trade, error) {
+	if len(msg.Events) == 0 {
+		return []Trade{}, nil
+	}
 	if msg.Events[0].Type == string(messages.TradeSnapshotEvent) {
 		return nil, ErrTradeSnapshot
 	}
