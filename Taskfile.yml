@@ -26,7 +26,7 @@ tasks:
   test:
     desc: Run tests
     cmds:
-      - go test ./... {{.CLI_ARGS}}
+      - go test ./...
 
   check:
     desc: Lint and test
