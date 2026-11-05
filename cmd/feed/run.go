@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/MrMoneyInTheBank/rill/internal/messages"
 )
@@ -36,10 +37,19 @@ func run() error {
 	}
 	defer teardown()
 
-	go norm_handler(ctx, msgCh, normLogger)
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		norm_handler(ctx, msgCh, normLogger)
+	}()
 
 	if err := message_handler(websocketEndpoint, msgCh, cancel); err != nil {
 		return err
 	}
+	cancel()
+
+	wg.Wait()
 	return nil
 }
