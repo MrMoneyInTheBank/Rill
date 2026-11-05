@@ -10,12 +10,13 @@ import (
 	"github.com/MrMoneyInTheBank/rill/internal/messages"
 )
 
-func readLoop(ctx context.Context, conn *websocket.Conn) error {
+func readLoop(ctx context.Context, conn *websocket.Conn, msgCh chan messages.Msg, msgChCancel context.CancelFunc) error {
 	for {
 		msgType, data, err := conn.Read(ctx)
 
 		if errors.Is(ctx.Err(), context.Canceled) {
 			log.Println("Shutdown requested")
+			msgChCancel()
 			return nil
 		}
 
@@ -34,6 +35,7 @@ func readLoop(ctx context.Context, conn *websocket.Conn) error {
 		}
 
 		log.Printf("RECEIVED %#v", msg)
+		msgCh <- msg
 
 	}
 }
