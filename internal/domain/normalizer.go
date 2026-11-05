@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -85,57 +86,53 @@ func NormalizeTrades(msg messages.TradesMsg) ([]Trade, error) {
 	return res, nil
 }
 
-func NormalizeOrderUpdate(orderType messages.L2EventType, update messages.L2Update, productID string, recvTime time.Time) (Order, error) {
-	var t OrderType
+func NormalizeOrderUpdate(update messages.L2Update) (Order, error) {
 	var side OrderSide
 
-	if orderType == messages.L2SnapshotEvent {
-		t = SNAPSHOT
-	} else {
-		t = UPDATE
-	}
-
-	if update.Side == messages.L2BidSide {
+	switch update.Side {
+	case messages.L2BidSide:
 		side = BID
-	} else {
+	case messages.L2OfferSide:
 		side = OFFER
+	default:
+		return Order{}, fmt.Errorf("invalid level2 side %q", update.Side)
 	}
 
 	return Order{
-		Type:          t,
-		ProductID:     productID,
-		OrderTime:     update.EventTime,
-		OrderRecvTime: recvTime,
-		Side:          side,
-		PriceLevel:    update.PriceLevel,
-		NewQty:        update.NewQty,
+		OrderTime:  update.EventTime,
+		Side:       side,
+		PriceLevel: update.PriceLevel,
+		NewQty:     update.NewQty,
 	}, nil
 }
 
-func NormalizeL2(msg messages.Level2Msg) ([]Order, error) {
-	if len(msg.Events) == 0 {
-		return []Order{}, nil
-	}
-
-	cap := func() int {
-		maxTrades := 0
-		for _, event := range msg.Events {
-			maxTrades = max(maxTrades, len(event.Updates))
-		}
-		return len(msg.Events) * maxTrades
-	}()
-
-	res := make([]Order, 0, cap)
-	msgTime := msg.Timestamp
-
+func NormalizeL2(msg messages.Level2Msg) ([]BookEvent, error) {
+	res := make([]BookEvent, 0, len(msg.Events))
 	for _, event := range msg.Events {
-		for _, update := range event.Updates {
-			order, err := NormalizeOrderUpdate(event.Type, update, event.ProductID, msgTime)
-			if err != nil {
-				return res, err
-			}
-			res = append(res, order)
+		var eventType OrderType
+		switch event.Type {
+		case messages.L2SnapshotEvent:
+			eventType = SNAPSHOT
+		case messages.L2UpdateEvent:
+			eventType = UPDATE
+		default:
+			return nil, fmt.Errorf("invalid level2 event type %q", event.Type)
 		}
+
+		bookEvent := BookEvent{
+			Type:          eventType,
+			ProductID:     event.ProductID,
+			OrderRecvTime: msg.Timestamp,
+			Levels:        make([]Order, 0, len(event.Updates)),
+		}
+		for _, update := range event.Updates {
+			order, err := NormalizeOrderUpdate(update)
+			if err != nil {
+				return nil, err
+			}
+			bookEvent.Levels = append(bookEvent.Levels, order)
+		}
+		res = append(res, bookEvent)
 	}
 
 	return res, nil

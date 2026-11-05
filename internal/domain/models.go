@@ -31,13 +31,18 @@ type Trade struct {
 }
 
 type Order struct {
+	OrderTime  time.Time
+	Side       OrderSide
+	PriceLevel decimal.Decimal
+	NewQty     decimal.Decimal
+}
+
+// BookEvent preserves one complete snapshot or update, including an empty snapshot.
+type BookEvent struct {
 	Type          OrderType
 	ProductID     string
-	OrderTime     time.Time
 	OrderRecvTime time.Time
-	Side          OrderSide
-	PriceLevel    decimal.Decimal
-	NewQty        decimal.Decimal
+	Levels        []Order
 }
 
 type Heartbeat struct {
