@@ -12,14 +12,17 @@ const (
 	websocketEndpoint string = "wss://advanced-trade-ws.coinbase.com"
 )
 
-func NewLogger(logfileName string) (*log.Logger, error) {
+func NewLogger(logfileName string) (*log.Logger, error, func()) {
 	logfile, err := os.OpenFile(logfileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	teardown := func() {
+		logfile.Close()
+	}
 	if err != nil {
-		return nil, err
+		return nil, err, nil
 	}
 
 	logger := log.New(logfile, log.Default().Prefix(), log.Default().Flags())
-	return logger, nil
+	return logger, nil, teardown
 }
 
 func run() error {
@@ -27,10 +30,11 @@ func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	normLogger, err := NewLogger("norm.log")
+	normLogger, err, teardown := NewLogger("norm.log")
 	if err != nil {
 		panic(err)
 	}
+	defer teardown()
 
 	go norm_handler(ctx, msgCh, normLogger)
 
