@@ -82,3 +82,12 @@ func NormalizeTrades(msg messages.TradesMsg) ([]Trade, error) {
 
 	return res, nil
 }
+
+func Normalizer(msg messages.Msg) (any, error) {
+	switch m := msg.(type) {
+	case messages.TradesMsg:
+		return NormalizeTrades(m)
+	}
+
+	return nil, nil
+}
