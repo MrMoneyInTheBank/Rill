@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -95,7 +94,7 @@ func NormalizeOrderUpdate(update messages.L2Update) (Order, error) {
 	case messages.L2OfferSide:
 		side = OFFER
 	default:
-		return Order{}, fmt.Errorf("invalid level2 side %q", update.Side)
+		return Order{}, ErrInvalidL2Side
 	}
 
 	return Order{
@@ -116,7 +115,7 @@ func NormalizeL2(msg messages.Level2Msg) ([]BookEvent, error) {
 		case messages.L2UpdateEvent:
 			eventType = UPDATE
 		default:
-			return nil, fmt.Errorf("invalid level2 event type %q", event.Type)
+			return nil, ErrInvalidL2EventType
 		}
 
 		bookEvent := BookEvent{

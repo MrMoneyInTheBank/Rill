@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -59,13 +60,16 @@ func TestNormalizeL2PreservesEvents(t *testing.T) {
 }
 
 func TestNormalizeL2RejectsInvalidValues(t *testing.T) {
-	for _, event := range []messages.L2Event{
-		{Type: "unexpected"},
-		{Type: messages.L2UpdateEvent, Updates: []messages.L2Update{{Side: "unexpected"}}},
+	for _, tc := range []struct {
+		event   messages.L2Event
+		wantErr error
+	}{
+		{messages.L2Event{Type: "unexpected"}, domain.ErrInvalidL2EventType},
+		{messages.L2Event{Type: messages.L2UpdateEvent, Updates: []messages.L2Update{{Side: "unexpected"}}}, domain.ErrInvalidL2Side},
 	} {
-		got, err := domain.NormalizeL2(messages.Level2Msg{Events: []messages.L2Event{event}})
-		if err == nil || got != nil {
-			t.Fatalf("invalid event accepted: %#v", event)
+		got, err := domain.NormalizeL2(messages.Level2Msg{Events: []messages.L2Event{tc.event}})
+		if !errors.Is(err, tc.wantErr) || got != nil {
+			t.Fatalf("got (%#v, %v), want (nil, %v)", got, err, tc.wantErr)
 		}
 	}
 }

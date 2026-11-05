@@ -2,7 +2,6 @@ package messages
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/MrMoneyInTheBank/rill/internal/channels"
 )
@@ -34,11 +33,11 @@ func ParseMsg(data []byte) (Msg, error) {
 		}
 		for _, event := range l2Msg.Events {
 			if event.Type != L2SnapshotEvent && event.Type != L2UpdateEvent {
-				return nil, fmt.Errorf("invalid level2 event type %q", event.Type)
+				return nil, ErrInvalidL2EventType
 			}
 			for _, update := range event.Updates {
 				if update.Side != L2BidSide && update.Side != L2OfferSide {
-					return nil, fmt.Errorf("invalid level2 side %q", update.Side)
+					return nil, ErrInvalidL2Side
 				}
 			}
 		}
@@ -50,16 +49,16 @@ func ParseMsg(data []byte) (Msg, error) {
 		}
 		for _, event := range tradesMsg.Events {
 			if event.Type != TradeSnapshotEvent && event.Type != TradeUpdateEvent {
-				return nil, fmt.Errorf("invalid trade event type %q", event.Type)
+				return nil, ErrInvalidTradeEventType
 			}
 			for _, trade := range event.Trades {
 				if trade.MakerSide != TradeBuySide && trade.MakerSide != TradeSellSide {
-					return nil, fmt.Errorf("invalid trade side %q", trade.MakerSide)
+					return nil, ErrInvalidTradeSide
 				}
 			}
 		}
 		return tradesMsg, nil
 	default:
-		return nil, fmt.Errorf("Unsupported channel for parsing: %v", baseMsg)
+		return nil, ErrUnsupportedChannel
 	}
 }
